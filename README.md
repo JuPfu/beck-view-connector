@@ -144,5 +144,3 @@ This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) f
 For more details on the parent project, visit the [Beck View Digitize repository](https://github.com/JuPfu/beck-view-digitize).
 
 --- 
-
-Let me know if you need any adjustments!
