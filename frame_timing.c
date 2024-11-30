@@ -4,7 +4,7 @@
 
 static absolute_time_t start_time, frame_start, frame_end;
 
-void frame_timing_init()
+void init_frame_timing()
 {
     start_time = frame_start = frame_end = get_absolute_time();
 }

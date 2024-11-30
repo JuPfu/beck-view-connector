@@ -13,7 +13,7 @@ typedef struct Queue_Entry
 } queue_entry_t;
 
 // Initialize frame timing
-void frame_timing_init(void);
+void init_frame_timing(void);
 
 // Handle frame timing calculations and update
 void process_frame_timing(queue_entry_t *entry, uint frame_counter, uint cmd);

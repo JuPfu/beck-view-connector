@@ -1,6 +1,6 @@
 /**
  * @file beck-view-connector.c
- * @brief Super 8 projector connector using Raspberry Pi Pico and C..
+ * @brief Super 8 projector connector using Raspberry Pi Pico and C.
  */
 
 #include "stdio.h"
@@ -16,9 +16,6 @@
 #include "hardware/gpio.h"
 #include "hardware/clocks.h"
 #include "hardware/sync.h"
-#include "hardware/watchdog.h"
-
-#include "pico/binary_info.h"
 
 #include <stdbool.h>
 #include "ili9341/ili9341.h"
@@ -54,14 +51,6 @@ static volatile uint irq_status = 0;
 /// Queue for frame timing data and command exchange between cores.
 static queue_t frame_queue;
 
-/// Screen control configuration.
-static screen_control_t sScreen = {
-    .mCursorX = 0,
-    .mCursorY = 0,
-    .mCursorType = 0,
-    .mCanvasPaper = kBlack,
-    .mCanvasInk = kWhite};
-
 /// Scale factor for fixed-point calculations (e.g., FPS with precision).
 #define SCALE_FACTOR 1000 // For three decimal places
 
@@ -83,7 +72,7 @@ static PT_THREAD(update_display(struct pt *pt))
 
         if (!queue_try_remove(&frame_queue, NULL))
         {
-            printf("Update Display Failed to remove element from queue");
+            printf("Update display failed to remove element from queue");
         }
 
         if (entry.cmd == UPDATE_CMD)
@@ -306,7 +295,7 @@ int64_t enable_eof_edge_rise_irq(alarm_id_t id, void *user_data)
  *
  * Handles both rising and falling edge events on the ADVANCE_FRAME_PIN.
  */
-void advance_frame_signal_isr()
+void advance_frame_signal_isr(void)
 {
     uint32_t event_mask = gpio_get_irq_event_mask(ADVANCE_FRAME_PIN);
     if (event_mask & GPIO_IRQ_EDGE_FALL)
@@ -319,7 +308,7 @@ void advance_frame_signal_isr()
         {
             if (frame_counter == 0)
             {
-                frame_timing_init();
+                init_frame_timing();
             }
 
             // pass timing information to core1
@@ -393,7 +382,7 @@ void init_frame_advance_signal(void)
  *
  * Handles rising edge events on the END_OF_FILM_PIN.
  */
-void end_of_film_signal_isr()
+void end_of_film_signal_isr(void)
 {
     if (gpio_get_irq_event_mask(END_OF_FILM_PIN) & GPIO_IRQ_EDGE_RISE)
     {
@@ -437,7 +426,7 @@ void end_of_film_signal_isr()
  *
  * Configures interrupts on END_OF_FILM_PIN for rising edges.
  */
-void init_end_of_film_signal()
+void init_end_of_film_signal(void)
 {
     gpio_add_raw_irq_handler(END_OF_FILM_PIN, end_of_film_signal_isr);
     gpio_set_irq_enabled(END_OF_FILM_PIN, GPIO_IRQ_EDGE_RISE, true);
