@@ -1,7 +1,3 @@
-Here’s a draft for the `README.md` file for the **beck-view-connector** sub-project:
-
----
-
 # Beck View Connector
 
 **Beck View Connector** is a sub-project within the broader [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) initiative. This project provides an interface and processing platform for a **Super 8 projector** using a **Raspberry Pi Pico**. It enables the detection, synchronization, and handling of frame advancements and end-of-film events, with real-time data displayed on a connected screen.
