@@ -25,14 +25,16 @@
 #include "frame_timing.h"
 #include "display.h"
 
+#include "frame_signal.pio.h"
+
 #define ADVANCE_FRAME_PIN 4 ///< GPIO pin for frame advance signal input.
 #define END_OF_FILM_PIN 5   ///< GPIO pin for end-of-film signal input.
 
 #define PASS_ON_FRAME_ADVANCE_PIN 2 //< GPIO pin to propagate frame advance signal.
 #define PASS_ON_END_OF_FILM_PIN 3   ///< GPIO pin to propagate end-of-film signal.
 
-#define FRAME_ADVANCE_DELAY_US 8000 ///< Duration in microseconds to maintain frame advance signal.
-#define END_OF_FILM_DELAY_US 16000  ///< Duration in microseconds to maintain end-of-film signal.
+#define FRAME_ADVANCE_DURATION_US 8000 ///< Duration in microseconds to maintain frame advance signal.
+#define END_OF_FILM_DURATION_US 16000  ///< Duration in microseconds to maintain end-of-film signal.
 
 #define DEBOUNCE_DELAY_US 1500 ///< Debounce duration for signal edges.
 
@@ -41,6 +43,12 @@
 
 void init_frame_advance_signal();
 void init_end_of_film_signal();
+
+static PIO pio[2];
+static uint sm[2];
+static uint offset[2];
+
+static uint32_t frame_signal_duration = 0;
 
 /// Frame counter to track total frames processed.
 static uint frame_counter = 0;
@@ -209,6 +217,16 @@ void init_pins()
     init_gpio_pin(PASS_ON_END_OF_FILM_PIN, true, true);
 }
 
+void signal_frame_advance(PIO pio, uint sm, uint offset, uint pin, uint duration_us)
+{
+    frame_signal_program_init(pio, sm, offset, pin);
+    pio_sm_set_enabled(pio, sm, true);
+
+    // PIO counter program takes 1 more cycle in total than we pass as input
+    frame_signal_duration = (clock_get_hz(clk_sys) * (duration_us / 1000000.0)) - 1;
+    printf("Frame pin %d - clock %lu Herz at %lu us %lu cycles\n", pin, clock_get_hz(clk_sys), duration_us, frame_signal_duration);
+}
+
 static struct pt pt;
 
 /**
@@ -233,6 +251,33 @@ int main()
     multicore_launch_core1(core1_entry);
 
     led_init();
+
+    // sm = pio_claim_unused_sm (pio0, true);
+    // int result = pio_add_program (pio0, &frame_signal_program);
+    // if ( result == PICO_ERROR_GENERIC ) {
+    //     printf("Could not add program `frame_signal_program` to pio0\n");
+    // }
+    // offset = result;
+    // result = pio_set_gpio_base (pio0, PICO_DEFAULT_LED_PIN);
+    // if ( result != PICO_OK ) {
+    //     printf("Could not set GPIO base for pio0\n");
+    // }
+    // uint gpio_base = result;
+
+    // result =  pio_sm_set_consecutive_pindirs (pio0, sm, gpio_base, 1, true);
+    // if ( result != PICO_OK ) {
+    //     printf("Could not set pindirs for pio0\n");
+    // }
+    // pio_gpio_init (pio0, PICO_DEFAULT_LED_PIN);
+    // Find a free pio and state machine and add the program
+    bool rc = pio_claim_free_sm_and_add_program_for_gpio_range(&frame_signal_program, &pio[0], &sm[0], &offset[0], PICO_DEFAULT_LED_PIN, 1, true);
+    hard_assert(rc);
+    printf("Loaded program at %u on pio %u\n", offset[0], PIO_NUM(pio[0]));
+    signal_frame_advance(pio[0], sm[0], offset[0], PICO_DEFAULT_LED_PIN, FRAME_ADVANCE_DURATION_US);
+    rc = pio_claim_free_sm_and_add_program_for_gpio_range(&frame_signal_program, &pio[1], &sm[1], &offset[1], PASS_ON_FRAME_ADVANCE_PIN, 1, true);
+    hard_assert(rc);
+    printf("Loaded program at %u on pio %u\n", offset[1], PIO_NUM(pio[1]));
+    signal_frame_advance(pio[1], sm[1], offset[1], PASS_ON_FRAME_ADVANCE_PIN, FRAME_ADVANCE_DURATION_US);
 
     // initialize pins
     init_pins();
@@ -321,15 +366,8 @@ void advance_frame_signal_isr(void)
                 printf("Alert --- Frame queue overflow %9.6f\n", (float)(absolute_time_diff_us(entry.frame_start, entry.frame_end) / 1000.0));
             }
 
-            gpio_put(PICO_DEFAULT_LED_PIN, true);
-            gpio_put(PASS_ON_FRAME_ADVANCE_PIN, false);
-
-            // keep frame advance signal pin high for FRAME_ADVANCE_DELAY_US
-            uint64_t alarm_id = add_alarm_in_us(FRAME_ADVANCE_DELAY_US, stop_emitting_frame_advance_signal, NULL, false);
-            if (alarm_id < 0)
-            {
-                printf("Alarm error stop_emitting_frame_advance_signal %llu\n", alarm_id);
-            }
+            pio[0]->txf[sm[0]] = frame_signal_duration;
+            pio[1]->txf[sm[1]] = frame_signal_duration;
 
             // debounce edge detection for DEBOUNCE_DELAY_US - enable IRQ again
             uint64_t edge_rise_alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US, enable_frame_advance_edge_rise_irq, NULL, false);
@@ -404,7 +442,7 @@ void end_of_film_signal_isr(void)
         gpio_put(PASS_ON_END_OF_FILM_PIN, false);
 
         // keep frame advance signal pin high for END_OF_FILM_DELAY_US
-        uint64_t alarm_id = add_alarm_in_us(END_OF_FILM_DELAY_US, stop_emitting_end_of_film_signal, NULL, false);
+        uint64_t alarm_id = add_alarm_in_us(END_OF_FILM_DURATION_US, stop_emitting_end_of_film_signal, NULL, false);
         if (alarm_id < 0)
         {
             printf("Alarm error stop_emitting_end_of_film_signal %llu\n", alarm_id);

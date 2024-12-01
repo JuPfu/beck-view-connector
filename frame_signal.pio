@@ -1,0 +1,22 @@
+
+; SET pin 0 should be mapped to PASS_ON_FRAME_ADVANCE_PIN
+
+.program frame_signal
+    pull block    ; Wait blocking for delay counter to appear in TX FIFO
+    out x, 32     ; Move delay counter from OSR to X register
+    set pins, 1   ; Start signalising to FT232H processor that frame is at rest and can be digitized
+loop:
+    jmp x-- loop  ; Delay for (x + 1) cycles, x is a 32 bit number
+    set pins, 0   ; Turn signal off
+
+% c-sdk {
+// this is a raw helper function for use by the user which sets up the GPIO output, and configures the SM to output on a particular pin
+
+void frame_signal_program_init(PIO pio, uint sm, uint offset, uint pin) {
+   pio_gpio_init(pio, pin);
+   pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, true);
+   pio_sm_config c = frame_signal_program_get_default_config(offset);
+   sm_config_set_set_pins(&c, pin, 1);
+   pio_sm_init(pio, sm, offset, &c);
+}
+%}
