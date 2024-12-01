@@ -343,9 +343,10 @@ int64_t enable_eof_edge_rise_irq(alarm_id_t id, void *user_data)
 void advance_frame_signal_isr(void)
 {
     uint32_t event_mask = gpio_get_irq_event_mask(ADVANCE_FRAME_PIN);
+    gpio_acknowledge_irq(ADVANCE_FRAME_PIN, event_mask);
+
     if (event_mask & GPIO_IRQ_EDGE_FALL)
     {
-        gpio_acknowledge_irq(ADVANCE_FRAME_PIN, event_mask);
         // Temporarily disable IRQ
         gpio_set_irq_enabled(ADVANCE_FRAME_PIN, GPIO_IRQ_EDGE_FALL, false);
 
@@ -379,9 +380,8 @@ void advance_frame_signal_isr(void)
             frame_counter++;
         }
     }
-    else if (gpio_get_irq_event_mask(ADVANCE_FRAME_PIN) & GPIO_IRQ_EDGE_RISE)
+    else if (event_mask & GPIO_IRQ_EDGE_RISE)
     {
-        gpio_acknowledge_irq(ADVANCE_FRAME_PIN, gpio_get_irq_event_mask(ADVANCE_FRAME_PIN));
         // Temporarily disable IRQ
         gpio_set_irq_enabled(ADVANCE_FRAME_PIN, GPIO_IRQ_EDGE_RISE, false);
 
