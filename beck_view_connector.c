@@ -238,10 +238,10 @@ static struct pt pt;
  */
 int main()
 {
-    stdio_init_all();
-
     // overclock pico to 250000khz
     set_sys_clock_khz(250000, true);
+
+    stdio_init_all();
 
     // initialize frame_queue - only one queue element allowed
     queue_init(&frame_queue, sizeof(queue_entry_t), 1);
@@ -252,29 +252,24 @@ int main()
 
     led_init();
 
-    // sm = pio_claim_unused_sm (pio0, true);
-    // int result = pio_add_program (pio0, &frame_signal_program);
-    // if ( result == PICO_ERROR_GENERIC ) {
-    //     printf("Could not add program `frame_signal_program` to pio0\n");
-    // }
-    // offset = result;
-    // result = pio_set_gpio_base (pio0, PICO_DEFAULT_LED_PIN);
-    // if ( result != PICO_OK ) {
-    //     printf("Could not set GPIO base for pio0\n");
-    // }
-    // uint gpio_base = result;
-
-    // result =  pio_sm_set_consecutive_pindirs (pio0, sm, gpio_base, 1, true);
-    // if ( result != PICO_OK ) {
-    //     printf("Could not set pindirs for pio0\n");
-    // }
-    // pio_gpio_init (pio0, PICO_DEFAULT_LED_PIN);
     // Find a free pio and state machine and add the program
-    bool rc = pio_claim_free_sm_and_add_program_for_gpio_range(&frame_signal_program, &pio[0], &sm[0], &offset[0], PICO_DEFAULT_LED_PIN, 1, true);
+    bool rc = pio_claim_free_sm_and_add_program_for_gpio_range(&frame_signal_program,
+                                                               &pio[0],
+                                                               &sm[0],
+                                                               &offset[0],
+                                                               PICO_DEFAULT_LED_PIN,
+                                                               1,
+                                                               true);
     hard_assert(rc);
     printf("Loaded program at %u on pio %u\n", offset[0], PIO_NUM(pio[0]));
     signal_frame_advance(pio[0], sm[0], offset[0], PICO_DEFAULT_LED_PIN, FRAME_ADVANCE_DURATION_US);
-    rc = pio_claim_free_sm_and_add_program_for_gpio_range(&frame_signal_program, &pio[1], &sm[1], &offset[1], PASS_ON_FRAME_ADVANCE_PIN, 1, true);
+    rc = pio_claim_free_sm_and_add_program_for_gpio_range(&frame_signal_program,
+                                                          &pio[1],
+                                                          &sm[1],
+                                                          &offset[1],
+                                                          PASS_ON_FRAME_ADVANCE_PIN,
+                                                          1,
+                                                          true);
     hard_assert(rc);
     printf("Loaded program at %u on pio %u\n", offset[1], PIO_NUM(pio[1]));
     signal_frame_advance(pio[1], sm[1], offset[1], PASS_ON_FRAME_ADVANCE_PIN, FRAME_ADVANCE_DURATION_US);
