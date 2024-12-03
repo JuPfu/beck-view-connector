@@ -1,6 +1,3 @@
-
-; SET pin 0 should be mapped to PASS_ON_FRAME_ADVANCE_PIN
-
 .program frame_signal
     pull block    ; Wait blocking for delay counter to appear in TX FIFO
     out x, 32     ; Move delay counter from OSR to X register
