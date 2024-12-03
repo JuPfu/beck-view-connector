@@ -335,7 +335,7 @@ void advance_frame_signal_isr(void)
 
         if (irq_status == 0)
         {
-            // debounce edge detection - enable IRQ again
+            // debounce edge detection - enable IRQ again after DEBOUNCE_DELAY_US
             uint64_t alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US, enable_frame_advance_edge_fall_irq, NULL, false);
             if (alarm_id < 0)
             {
@@ -374,7 +374,7 @@ void end_of_film_signal_isr(void)
     {
         gpio_acknowledge_irq(END_OF_FILM_PIN, GPIO_IRQ_EDGE_RISE);
 
-        // Temporarily disable IRQ
+        // Disable IRQ
         gpio_set_irq_enabled(END_OF_FILM_PIN, GPIO_IRQ_EDGE_RISE, false);
 
         queue_entry_t entry;
