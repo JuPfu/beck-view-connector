@@ -4,12 +4,12 @@
 
 static absolute_time_t start_time, frame_start, frame_end;
 
-void init_frame_timing()
+void inline init_frame_timing()
 {
     start_time = frame_start = frame_end = get_absolute_time();
 }
 
-void process_frame_timing(queue_entry_t *entry, uint frame_counter, uint cmd)
+void inline process_frame_timing(queue_entry_t *entry, uint frame_counter, uint cmd)
 {
     frame_start = frame_end;
     frame_end = get_absolute_time();
