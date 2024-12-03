@@ -12,7 +12,6 @@
 #include "pico/divider.h"
 #include "pico/time.h"
 #include "hardware/irq.h"
-#include "hardware/ticks.h"
 #include "hardware/gpio.h"
 #include "hardware/clocks.h"
 #include "hardware/sync.h"
@@ -316,11 +315,11 @@ void advance_frame_signal_isr(void)
             pio[0]->txf[sm[0]] = frame_signal_duration;
             pio[1]->txf[sm[1]] = frame_signal_duration;
 
-            // debounce edge detection for DEBOUNCE_DELAY_US - enable IRQ again
+            // debounce edge detection for DEBOUNCE_DELAY_US - enable IRQ again after DEBOUNCE_DELAY_US
             uint64_t edge_rise_alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US, enable_frame_advance_edge_rise_irq, NULL, false);
             if (edge_rise_alarm_id < 0)
             {
-                printf("edge_rise_alarm_id Alarm error %llu\n", edge_rise_alarm_id);
+                printf("Edge_rise_alarm_id Alarm error %llu\n", edge_rise_alarm_id);
             }
 
             frame_counter++;
@@ -336,10 +335,10 @@ void advance_frame_signal_isr(void)
         if (irq_status == 0)
         {
             // debounce edge detection - enable IRQ again after DEBOUNCE_DELAY_US
-            uint64_t alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US, enable_frame_advance_edge_fall_irq, NULL, false);
-            if (alarm_id < 0)
+            uint64_t edge_fall_alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US, enable_frame_advance_edge_fall_irq, NULL, false);
+            if (edge_fall_alarm_id < 0)
             {
-                printf("FALL Alarm error %lld\n", alarm_id);
+                printf("Edge_fall_alarm_id Alarm error %lld\n", edge_fall_alarm_id);
             }
         }
     }
