@@ -60,12 +60,12 @@ void display_frame_info(uint frame_counter, float fps, float duration)
 
     if (frame_counter > 0)
     {
-        snprintf(fps_buf, sizeof(fps_buf), "%9.3f", fps);
+        snprintf(fps_buf, sizeof(fps_buf), "%9.4f", fps);
         TftPutTextLabel(&sScreen, fps_buf, 120, 32, true);
     }
     else
     {
-        snprintf(fps_buf, sizeof(fps_buf), "    0.000");
+        snprintf(fps_buf, sizeof(fps_buf), "   0.0000");
         TftPutTextLabel(&sScreen, fps_buf, 120, 32, true);
 
         TftPutTextLabel(&sScreen, "                        ", 5, 80, true);

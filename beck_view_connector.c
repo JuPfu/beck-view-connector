@@ -3,25 +3,25 @@
  * @brief Super 8 projector connector using Raspberry Pi Pico and C.
  */
 
+#include "hardware/clocks.h"
+#include "hardware/gpio.h"
+#include "hardware/irq.h"
+#include "hardware/sync.h"
+#include "pico.h"
+#include "pico/multicore.h"
+#include "pico/stdlib.h"
+#include "pico/time.h"
+#include "pico/util/queue.h"
 #include "stdio.h"
 #include "string.h"
-#include "pico.h"
-#include "pico/stdlib.h"
-#include "pico/util/queue.h"
-#include "pico/multicore.h"
-#include "pico/time.h"
-#include "hardware/irq.h"
-#include "hardware/gpio.h"
-#include "hardware/clocks.h"
-#include "hardware/sync.h"
 
-#include <stdbool.h>
 #include "ili9341/ili9341.h"
+#include <stdbool.h>
 
 #include "pt_v1_3.h"
 
-#include "frame_timing.h"
 #include "display.h"
+#include "frame_timing.h"
 
 #include "frame_signal.pio.h"
 
@@ -79,11 +79,11 @@ static PT_THREAD(update_display(struct pt *pt))
         if (queue_entry.cmd == UPDATE_CMD)
         {
             // FPS Calculation
-            uint64_t time_diff = absolute_time_diff_us(queue_entry.frame_start, queue_entry.frame_end);
-            float fps = 1.0e6 / time_diff;
+            uint64_t time_diff_us = absolute_time_diff_us(queue_entry.frame_start, queue_entry.frame_end);
+            float fps = 1.0e6 / time_diff_us;
 
             // Duration Calculation
-            float duration = time_diff / 1.0e6;
+            float duration = time_diff_us / 1.0e6;
 
             display_frame_info(queue_entry.frame_counter, fps, duration);
         }
@@ -203,9 +203,12 @@ int64_t enable_frame_advance_edge_irq(alarm_id_t id, void *user_data)
 
 void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
 {
+    gpio_acknowledge_irq(gpio, event_mask);
+
     if (gpio == ADVANCE_FRAME_PIN)
     {
-        gpio_acknowledge_irq(ADVANCE_FRAME_PIN, event_mask);
+        critical_section_enter_blocking(&cs1);
+
         if (event_mask & GPIO_IRQ_EDGE_FALL)
         {
             // Temporarily disable IRQs.
@@ -258,11 +261,10 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                 }
             }
         }
+        critical_section_exit(&cs1);
     }
     else if (gpio == END_OF_FILM_PIN)
     {
-        gpio_acknowledge_irq(END_OF_FILM_PIN, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE);
-
         if (event_mask & GPIO_IRQ_EDGE_RISE)
         {
             // Disable IRQ
@@ -279,6 +281,10 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
 
             frame_counter = 0;
         }
+    }
+    else
+    {
+        printf("Unhandled GPIO interrupt on pin %u\n", gpio);
     }
 }
 /**
