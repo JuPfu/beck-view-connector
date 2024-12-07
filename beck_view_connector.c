@@ -109,8 +109,6 @@ static PT_THREAD(update_display(struct pt *pt))
  */
 void core1_entry()
 {
-    static queue_entry_t queue_entry;
-
     ili9341_config_t hw_config;
     display_init(&hw_config);
 
