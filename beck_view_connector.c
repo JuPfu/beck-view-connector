@@ -170,12 +170,6 @@ void init_pins()
     init_gpio_pin(PASS_ON_END_OF_FILM_PIN, true, true);
 }
 
-void signal_frame_advance(PIO pio, uint sm, uint offset, uint pin)
-{
-    frame_signal_program_init(pio, sm, offset, pin);
-    pio_sm_set_enabled(pio, sm, true);
-}
-
 void pio_setup(const pio_program_t *program, PIO *pio, uint *sm, uint *offset, uint gpio_base)
 {
     // Find a free pio and state machine and add the program
@@ -187,7 +181,8 @@ void pio_setup(const pio_program_t *program, PIO *pio, uint *sm, uint *offset, u
                                                                1,
                                                                true);
     hard_assert(rc);
-    signal_frame_advance(*pio, *sm, *offset, gpio_base);
+    frame_signal_program_init(*pio, *sm, *offset, gpio_base);
+    pio_sm_set_enabled(*pio, *sm, true);
 }
 
 /**
