@@ -7,6 +7,7 @@ static absolute_time_t start_time, frame_start, frame_end;
 void inline init_frame_timing()
 {
     start_time = frame_start = frame_end = get_absolute_time();
+    frame_end -= 10000;
 }
 
 void inline process_frame_timing(queue_entry_t *entry, uint frame_counter, uint cmd)

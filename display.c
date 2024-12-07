@@ -50,7 +50,7 @@ void display_start_info(void)
     TftFullScreenWrite(&sScreen);
 }
 
-void display_frame_info(uint frame_counter, uint64_t fps_integer, uint64_t fps_fraction, uint64_t duration_integer, uint64_t duration_fraction)
+void display_frame_info(uint frame_counter, float fps, float duration)
 {
     char frame_buf[20], fps_buf[20], duration_buf[20];
 
@@ -60,7 +60,7 @@ void display_frame_info(uint frame_counter, uint64_t fps_integer, uint64_t fps_f
 
     if (frame_counter > 0)
     {
-        snprintf(fps_buf, sizeof(fps_buf), "%5llu.%03llu", fps_integer, fps_fraction);
+        snprintf(fps_buf, sizeof(fps_buf), "%9.3f", fps);
         TftPutTextLabel(&sScreen, fps_buf, 120, 32, true);
     }
     else
@@ -73,10 +73,10 @@ void display_frame_info(uint frame_counter, uint64_t fps_integer, uint64_t fps_f
         TftPutTextLabel(&sScreen, "                        ", 5, 112, true);
     }
 
-    snprintf(duration_buf, sizeof(duration_buf), "%5llu.%03llu", duration_integer, duration_fraction);
+    snprintf(duration_buf, sizeof(duration_buf), "%9.6f", duration);
     TftPutTextLabel(&sScreen, duration_buf, 120, 48, true);
 
-    TftFullScreenSelectiveWrite(&sScreen, 125);
+    TftFullScreenSelectiveWrite(&sScreen, 120);
 }
 
 void display_eof_info(uint frame_counter, float avg_fps, float duration)
