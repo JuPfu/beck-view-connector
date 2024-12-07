@@ -279,10 +279,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
 
             process_frame_timing(&entry, frame_counter, EOF_CMD);
 
-            if (!queue_try_add(&frame_queue, &entry))
-            {
-                printf("Alert --- Frame queue overflow %9.6f\n", (float)(absolute_time_diff_us(entry.frame_start, entry.frame_end) / 1000.0));
-            }
+            queue_add_blocking(&frame_queue, &entry);
 
             pio[0]->txf[sm[2]] = eof_signal_duration;
             pio[1]->txf[sm[3]] = eof_signal_duration;
