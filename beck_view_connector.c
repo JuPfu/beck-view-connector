@@ -215,7 +215,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
         gpio_acknowledge_irq(ADVANCE_FRAME_PIN, event_mask);
         if (event_mask & GPIO_IRQ_EDGE_FALL)
         {
-            // Temporarily disable IRQs
+            // Temporarily disable IRQs.
             gpio_set_irq_enabled(ADVANCE_FRAME_PIN, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, false);
             if (irq_status == 1)
             {
@@ -223,7 +223,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                 if (frame_counter == 0)
                 {
                     init_frame_timing();
-                    // enable end of film detection
+                    // Enable end of film detection.
                     gpio_set_irq_enabled(END_OF_FILM_PIN, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true);
                 }
 
@@ -242,7 +242,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                 pio[0]->txf[sm[0]] = frame_signal_duration;
                 pio[1]->txf[sm[1]] = frame_signal_duration;
 
-                // debounce edge detection for DEBOUNCE_DELAY_US - enable IRQ again after DEBOUNCE_DELAY_US
+                // Debounce edge detection for DEBOUNCE_DELAY_US - enable IRQ again after DEBOUNCE_DELAY_US.
                 uint64_t edge_rise_alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, NULL, false);
                 if (edge_rise_alarm_id < 0)
                 {
@@ -256,8 +256,8 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
         {
             if (irq_status == 0)
             {
-                 irq_status = 2;
-                // debounce edge detection - enable IRQ again after DEBOUNCE_DELAY_US
+                irq_status = 2;
+                // Debounce edge detection - enable IRQ again after DEBOUNCE_DELAY_US.
                 uint64_t edge_fall_alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, NULL, false);
                 if (edge_fall_alarm_id < 0)
                 {
@@ -301,7 +301,6 @@ void init_signals(void)
     gpio_set_irq_callback(gpio_irq_callback_isr);
 
     irq_status = gpio_get_all() & (1 << ADVANCE_FRAME_PIN) ? 1 : 0;
-    printf("HELLO irq_status=%u  %lu\n", irq_status, gpio_get_all() & (1 << ADVANCE_FRAME_PIN));
     gpio_set_irq_enabled((uint)ADVANCE_FRAME_PIN,
                          irq_status ? (uint32_t)(GPIO_IRQ_EDGE_FALL) : (uint32_t)(GPIO_IRQ_EDGE_RISE),
                          true);
@@ -314,8 +313,6 @@ void init_signals(void)
     printf("HELLO pin PASS_ON_FRAME_ADVANCE_PIN state %s  OUT_level=%s level=%d\n", gpio_get_dir(PASS_ON_FRAME_ADVANCE_PIN) ? "out" : "in", gpio_get_out_level(PASS_ON_FRAME_ADVANCE_PIN) ? "high" : "low", gpio_get(PASS_ON_FRAME_ADVANCE_PIN));
 }
 
-static struct pt pt_tmp;
-
 /**
  * @brief Main function for initialization and running of threads and interrupts.
  *
@@ -325,19 +322,19 @@ static struct pt pt_tmp;
  */
 int main()
 {
-    // overclock pico to 250000khz
+    // Overclock pico to 250000khz.
     set_sys_clock_khz(250000, true);
 
     stdio_init_all();
 
     critical_section_init(&cs1);
 
-    // initialize frame_queue - only one queue element allowed
+    // Initialize frame_queue - only one queue element allowed.
     int lock_num = spin_lock_claim_unused(true);
     queue_init_with_spinlock(&frame_queue, sizeof(queue_entry_t), 1, lock_num);
 
     multicore_reset_core1();
-    // launch main routine of core 1
+    // Launch main routine of core 1.
     multicore_launch_core1(core1_entry);
 
     led_init();
@@ -350,10 +347,10 @@ int main()
     pio_setup(&frame_signal_program, &pio[2], &sm[2], &offset[2], PICO_DEFAULT_LED_PIN);
     pio_setup(&frame_signal_program, &pio[3], &sm[3], &offset[3], PASS_ON_END_OF_FILM_PIN);
 
-    // initialize pins
+    // Initialize pins.
     init_pins();
 
-    // initialize frame advance and end-of-film signals
+    // Initialize frame advance and end-of-film signals.
     init_signals();
 
     while (1)
