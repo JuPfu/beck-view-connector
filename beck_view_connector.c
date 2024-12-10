@@ -43,9 +43,9 @@
 #define EOF_CMD 2    ///< Command for end-of-film handling.
 
 // PIO (Programmable I/O) setup for signal handling
-static PIO pio[4];       ///< Array of PIO instances.
-static uint sm[4];       ///< Array of state machines for PIO.
-static uint offset[4];   ///< Offset addresses for PIO programs.
+static PIO pio[4];     ///< Array of PIO instances.
+static uint sm[4];     ///< Array of state machines for PIO.
+static uint offset[4]; ///< Offset addresses for PIO programs.
 
 static uint32_t frame_signal_duration = 0; ///< Frame advance signal duration in system clock cycles.
 static uint32_t eof_signal_duration = 0;   ///< End-of-film signal duration in system clock cycles.
@@ -149,7 +149,7 @@ int led_init(void)
  */
 void init_gpio_pin(uint gpio, bool pull_up, bool is_output)
 {
-    gpio_init(gpio);                                    // Initialize the GPIO pin
+    gpio_init(gpio); // Initialize the GPIO pin
     // gpio_set_pulls(gpio, pull_up, !pull_up);            // Configure pull-up or pull-down
     gpio_set_dir(gpio, is_output ? GPIO_OUT : GPIO_IN); // Configure as input or output
     if (is_output)
@@ -180,9 +180,9 @@ void pio_setup(const pio_program_t *program, PIO *pio, uint *sm, uint *offset, u
 {
     // Claim a free PIO and state machine, and load the program for the specified GPIO range
     bool rc = pio_claim_free_sm_and_add_program_for_gpio_range(program, pio, sm, offset, gpio_base, 1, true);
-    hard_assert(rc); // Ensure PIO program setup succeeded
+    hard_assert(rc);                                          // Ensure PIO program setup succeeded
     frame_signal_program_init(*pio, *sm, *offset, gpio_base); // Initialize the PIO program
-    pio_sm_set_enabled(*pio, *sm, true); // Enable the state machine
+    pio_sm_set_enabled(*pio, *sm, true);                      // Enable the state machine
 }
 
 /**
@@ -353,7 +353,7 @@ int main()
     int lock_num = spin_lock_claim_unused(true);
     queue_init_with_spinlock(&frame_queue, sizeof(queue_entry_t), 1, lock_num);
 
-    multicore_reset_core1();          // Reset core 1
+    multicore_reset_core1();             // Reset core 1
     multicore_launch_core1(core1_entry); // Launch core 1 entry function
 
     led_init(); // Initialize and blink LED as a status indicator
