@@ -349,8 +349,8 @@ int main()
     led_init(); // Initialize and blink LED as a status indicator
 
     // Calculate signal durations in clock cycles
-    frame_signal_duration = (clock_get_hz(clk_sys) * (FRAME_ADVANCE_DURATION_US / 1.0e6)) - 1;
-    eof_signal_duration = (clock_get_hz(clk_sys) * (END_OF_FILM_DURATION_US / 1.0e6)) - 1;
+    frame_signal_duration = (clock_get_hz(clk_sys) * (FRAME_ADVANCE_DURATION_US / 1.0e6)) - 2;
+    eof_signal_duration = (clock_get_hz(clk_sys) * (END_OF_FILM_DURATION_US / 1.0e6)) - 2;
 
     // Initialize GPIO pins
     init_pins();
