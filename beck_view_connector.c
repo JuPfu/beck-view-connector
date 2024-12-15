@@ -149,8 +149,7 @@ int led_init(void)
  */
 void init_gpio_pin(uint gpio, bool pull_up, bool is_output)
 {
-    gpio_init(gpio); // Initialize the GPIO pin
-    // gpio_set_pulls(gpio, pull_up, !pull_up);            // Configure pull-up or pull-down
+    gpio_init(gpio);                                    // Initialize the GPIO pin
     gpio_set_dir(gpio, is_output ? GPIO_OUT : GPIO_IN); // Configure as input or output
     if (is_output)
         gpio_put(gpio, true); // Set output level to high if output

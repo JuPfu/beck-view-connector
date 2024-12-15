@@ -1,19 +1,34 @@
 .program frame_signal
-    pull block    ; Wait blocking for delay counter to appear in TX FIFO
-    out x, 32     ; Move delay counter from OSR to X register
-    set pins, 1   ; Start signalising to FT232H processor that frame is at rest and can be digitized
+.wrap_target
+    pull block      ; Wait blocking for delay counter to appear in TX FIFO
+    out x, 32       ; Move delay counter from OSR to X register
+    mov osr, !pins  ; invert pin value from 0...00 to 1...11 or from 0...01 to 1...10 when moving into osr
+    out pins, 1     ; output rightmost bit (inverted pin value) to pin
 loop:
-    jmp x-- loop  ; Delay for (x + 1) cycles, x is a 32 bit number
-    set pins, 0   ; Turn signal off
+    jmp x-- loop    ; Delay for (x + 1) cycles, x is a 32 bit number
+    mov osr, !pins  ; invert pin value from 0...00 to 1...11 or from 0...01 to 1...10 when moving into osr
+    out pins, 1     ; output rightmost bit (inverted pin value) to pin
+.wrap
 
 % c-sdk {
 // this is a raw helper function for use by the user which sets up the GPIO output, and configures the SM to output on a particular pin
 
 void frame_signal_program_init(PIO pio, uint sm, uint offset, uint pin) {
+   // Set this pin's GPIO function (connect PIO to the pad)
    pio_gpio_init(pio, pin);
-   pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, true);
+   // Set the pin direction to output at the PIO
+   int pio_return_value = pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, true);
+   if ( PICO_OK != pio_return_value) {
+    printf("ERROR pio_sm_set_consecutive_pindirs returned error: %d\n", pio_return_value);
+   }
    pio_sm_config c = frame_signal_program_get_default_config(offset);
-   sm_config_set_set_pins(&c, pin, 1);
+   // Map the state machine's IN pin group to one pin, namely the `pin` parameter to this function.
+   sm_config_set_in_pins(&c, pin); // MOV from pins uses same pins as set for IN
+   // Map the state machine's OUT pin group to one pin, namely the `pin` parameter to this function.
+   sm_config_set_out_pins(&c, pin, 1);
+   sm_config_set_in_shift(&c, true, false, 32);
+   sm_config_set_out_shift(&c, true, false, 32);
+   // Load the configuration, and jump to the start of the program
    pio_sm_init(pio, sm, offset, &c);
 }
 %}
