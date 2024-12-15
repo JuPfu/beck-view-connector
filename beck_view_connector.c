@@ -321,11 +321,6 @@ void init_signals(void)
     {
         irq_set_enabled(IO_IRQ_BANK0, true);
     }
-
-    // Debug output for signal initialization
-    printf("HELLO pin state %s  OUT_level=%s level=%d pull_up=%d  pull_down=%d\n", gpio_get_dir(ADVANCE_FRAME_PIN) ? "out" : "in", gpio_get_out_level(ADVANCE_FRAME_PIN) ? "high" : "low", gpio_get(ADVANCE_FRAME_PIN), gpio_is_pulled_up(ADVANCE_FRAME_PIN), gpio_is_pulled_down(ADVANCE_FRAME_PIN));
-
-    printf("HELLO pin PASS_ON_FRAME_ADVANCE_PIN state %s  OUT_level=%s level=%d\n", gpio_get_dir(PASS_ON_FRAME_ADVANCE_PIN) ? "out" : "in", gpio_get_out_level(PASS_ON_FRAME_ADVANCE_PIN) ? "high" : "low", gpio_get(PASS_ON_FRAME_ADVANCE_PIN));
 }
 
 /**
