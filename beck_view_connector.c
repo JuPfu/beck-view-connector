@@ -26,6 +26,7 @@
 #include "frame_signal.pio.h"
 
 // Define GPIO pins for frame advance and end-of-film signals
+#define MOTOR_PIN 0         ///< GPIO pin set permantly high on EOF to stop projector motor.
 #define ADVANCE_FRAME_PIN 4 ///< GPIO pin for frame advance signal input.
 #define END_OF_FILM_PIN 5   ///< GPIO pin for end-of-film signal input.
 
@@ -152,9 +153,9 @@ void init_gpio_pin(uint gpio, bool pull_up, bool is_output)
     gpio_init(gpio);                                    // Initialize the GPIO pin
     gpio_set_dir(gpio, is_output ? GPIO_OUT : GPIO_IN); // Configure as input or output
     gpio_set_pulls(gpio, pull_up, !pull_up);
-    if (is_output)
+    if (is_output && gpio != MOTOR_PIN)
     {
-        gpio_put(gpio, true); // Set output level to high if output
+        gpio_put(gpio, 1); // Set output level to high if output
     }
 }
 
@@ -167,6 +168,7 @@ void init_pins()
     init_gpio_pin(END_OF_FILM_PIN, false, false);         // Configure end-of-film pin as input
     init_gpio_pin(PASS_ON_FRAME_ADVANCE_PIN, true, true); // Configure pass-on frame advance pin as output
     init_gpio_pin(PASS_ON_END_OF_FILM_PIN, true, true);   // Configure pass-on end-of-film pin as output
+    init_gpio_pin(MOTOR_PIN, false, true);                // Configure motor pin as output
 }
 
 /**
@@ -291,8 +293,9 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
             queue_add_blocking(&frame_queue, &entry); // Add processed data to the queue
 
             // Trigger PIO for end-of-film signal
-            pio[0]->txf[sm[2]] = eof_signal_duration;
-            pio[1]->txf[sm[3]] = eof_signal_duration;
+            pio[1]->txf[sm[2]] = eof_signal_duration;
+
+            gpio_put(MOTOR_PIN, 1); // stop motor of projector
 
             frame_counter = 0; // Reset frame counter
         }
@@ -358,8 +361,7 @@ int main()
     // Setup PIO for signal generation
     pio_setup(&frame_signal_program, &pio[0], &sm[0], &offset[0], PICO_DEFAULT_LED_PIN);
     pio_setup(&frame_signal_program, &pio[1], &sm[1], &offset[1], PASS_ON_FRAME_ADVANCE_PIN);
-    pio_setup(&frame_signal_program, &pio[2], &sm[2], &offset[2], PICO_DEFAULT_LED_PIN);
-    pio_setup(&frame_signal_program, &pio[3], &sm[3], &offset[3], PASS_ON_END_OF_FILM_PIN);
+    pio_setup(&frame_signal_program, &pio[2], &sm[2], &offset[2], PASS_ON_END_OF_FILM_PIN);
 
     // gpio_put(ADVANCE_FRAME_PIN, true);
     // Initialize signals and their interrupts
