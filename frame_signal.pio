@@ -1,4 +1,12 @@
 .program frame_signal
+; The frame advance signal from the opto-coupleris passed on to the FT232H controller
+; via the PASS_ON_FRAME_ADVANCE_PIN. The signal is activated for a certain amount of time (e.g. 8 ms).
+;
+; Input parameters
+; TX FIFO    delay in machine cycles
+; pin        PASS_ON_FRAME_ADVANCE_PIN or 
+;            pin with attached led to visually indicate passing on of frame advance signal
+;
 .wrap_target
     pull block      ; Wait blocking for delay counter to appear in TX FIFO
     out x, 32       ; Move delay counter from OSR to X register
