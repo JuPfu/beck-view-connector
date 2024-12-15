@@ -60,20 +60,6 @@ static struct pt pt; ///< Protothread control structure.
 
 critical_section_t cs1; ///< Critical section to protect shared resources.
 
-typedef struct
-{
-    int frame_counter;
-    int irq_status;
-    int rise;
-    int event_mask;
-    int pin;
-    absolute_time_t delta;
-} monitor_t;
-
-static monitor_t monitor[1000];
-static int m = 0;
-static absolute_time_t fstart = 0;
-
 /**
  * @brief Protothread for updating the display with frame timing and status information.
  *
@@ -110,14 +96,6 @@ static PT_THREAD(update_display(struct pt *pt))
 
             // Display end-of-film information
             display_eof_info(queue_entry.frame_counter, avg_fps, duration);
-
-            for (int i = 0; i < m; i++)
-            {
-                printf("i=%d rise=%d frame_counter=%d irq_status=%d event_mask=%d pin=%d  delta=%9.6f freq=%9.6f\n", i,
-                       monitor[i].rise, monitor[i].frame_counter, monitor[i].irq_status, monitor[i].event_mask,
-                       monitor[i].pin, (monitor[i].delta / 1000.0), (1.e6 / monitor[i].delta));
-            }
-            m = 0;
         }
         else
         {
@@ -225,16 +203,6 @@ int64_t enable_frame_advance_edge_irq(alarm_id_t id, void *user_data)
     irq_status = gpio_get(ADVANCE_FRAME_PIN);
     gpio_set_irq_enabled(ADVANCE_FRAME_PIN, irq_status ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE, true);
 
-    if (m < 1000)
-    {
-        monitor[m].frame_counter = frame_counter;
-        monitor[m].irq_status = irq_status;
-        monitor[m].event_mask = 0;
-        monitor[m].rise = -1;
-        monitor[m].pin = gpio_get(ADVANCE_FRAME_PIN);
-        m++;
-    }
-
     critical_section_exit(&cs1); // Exit critical section
     return 0;
 }
@@ -292,18 +260,6 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                 }
 
                 frame_counter++; // Increment the frame counter
-
-                if (m < 1000)
-                {
-                    monitor[m].frame_counter = frame_counter;
-                    monitor[m].irq_status = irq_status;
-                    monitor[m].event_mask = event_mask;
-                    monitor[m].rise = 1;
-                    monitor[m].pin = gpio_get(ADVANCE_FRAME_PIN);
-                    monitor[m].delta = absolute_time_diff_us(fstart, get_absolute_time());
-                    fstart = get_absolute_time();
-                    m++;
-                }
             }
         }
         else if (event_mask & GPIO_IRQ_EDGE_RISE)
@@ -316,15 +272,6 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                 if (edge_fall_alarm_id < 0)
                 {
                     printf("Edge_rise_alarm_id Alarm error %lld\n", edge_fall_alarm_id);
-                }
-                if (m < 1000)
-                {
-                    monitor[m].frame_counter = frame_counter;
-                    monitor[m].irq_status = irq_status;
-                    monitor[m].event_mask = event_mask;
-                    monitor[m].rise = 0;
-                    monitor[m].pin = gpio_get(ADVANCE_FRAME_PIN);
-                    m++;
                 }
             }
         }
