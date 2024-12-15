@@ -36,7 +36,7 @@
 #define FRAME_ADVANCE_DURATION_US 8000  ///< Duration in microseconds to maintain frame advance signal.
 #define END_OF_FILM_DURATION_US 1000000 ///< Duration in microseconds to maintain end-of-film signal.
 
-#define DEBOUNCE_DELAY_US 3000 ///< Debounce duration for signal edges.
+#define DEBOUNCE_DELAY_US 1000 ///< Debounce duration for signal edges.
 
 // Commands for the queue to manage updates and events
 #define UPDATE_CMD 1 ///< Command for updating display.
@@ -59,6 +59,20 @@ static queue_t frame_queue; ///< Queue for frame timing data and command exchang
 static struct pt pt; ///< Protothread control structure.
 
 critical_section_t cs1; ///< Critical section to protect shared resources.
+
+typedef struct
+{
+    int frame_counter;
+    int irq_status;
+    int rise;
+    int event_mask;
+    int pin;
+    absolute_time_t delta;
+} monitor_t;
+
+static monitor_t monitor[1000];
+static int m = 0;
+static absolute_time_t fstart = 0;
 
 /**
  * @brief Protothread for updating the display with frame timing and status information.
@@ -96,6 +110,14 @@ static PT_THREAD(update_display(struct pt *pt))
 
             // Display end-of-film information
             display_eof_info(queue_entry.frame_counter, avg_fps, duration);
+
+            for (int i = 0; i < m; i++)
+            {
+                printf("i=%d rise=%d frame_counter=%d irq_status=%d event_mask=%d pin=%d  delta=%9.6f freq=%9.6f\n", i,
+                       monitor[i].rise, monitor[i].frame_counter, monitor[i].irq_status, monitor[i].event_mask,
+                       monitor[i].pin, (monitor[i].delta / 1000.0), (1.e6 / monitor[i].delta));
+            }
+            m = 0;
         }
         else
         {
@@ -151,8 +173,11 @@ void init_gpio_pin(uint gpio, bool pull_up, bool is_output)
 {
     gpio_init(gpio);                                    // Initialize the GPIO pin
     gpio_set_dir(gpio, is_output ? GPIO_OUT : GPIO_IN); // Configure as input or output
+    gpio_set_pulls(gpio, pull_up, !pull_up);
     if (is_output)
+    {
         gpio_put(gpio, true); // Set output level to high if output
+    }
 }
 
 /**
@@ -160,8 +185,8 @@ void init_gpio_pin(uint gpio, bool pull_up, bool is_output)
  */
 void init_pins()
 {
-    init_gpio_pin(ADVANCE_FRAME_PIN, true, false);        // Configure frame advance pin as input
-    init_gpio_pin(END_OF_FILM_PIN, true, false);          // Configure end-of-film pin as input
+    init_gpio_pin(ADVANCE_FRAME_PIN, false, false);       // Configure frame advance pin as input
+    init_gpio_pin(END_OF_FILM_PIN, false, false);         // Configure end-of-film pin as input
     init_gpio_pin(PASS_ON_FRAME_ADVANCE_PIN, true, true); // Configure pass-on frame advance pin as output
     init_gpio_pin(PASS_ON_END_OF_FILM_PIN, true, true);   // Configure pass-on end-of-film pin as output
 }
@@ -197,10 +222,18 @@ int64_t enable_frame_advance_edge_irq(alarm_id_t id, void *user_data)
     critical_section_enter_blocking(&cs1);
 
     // Determine the current IRQ status and set the appropriate edge detection
-    irq_status = gpio_get_all() & (1 << ADVANCE_FRAME_PIN) ? 1 : 0;
-    gpio_set_irq_enabled((uint)ADVANCE_FRAME_PIN,
-                         irq_status ? (uint32_t)(GPIO_IRQ_EDGE_FALL) : (uint32_t)(GPIO_IRQ_EDGE_RISE),
-                         true);
+    irq_status = gpio_get(ADVANCE_FRAME_PIN);
+    gpio_set_irq_enabled(ADVANCE_FRAME_PIN, irq_status ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE, true);
+
+    if (m < 1000)
+    {
+        monitor[m].frame_counter = frame_counter;
+        monitor[m].irq_status = irq_status;
+        monitor[m].event_mask = 0;
+        monitor[m].rise = -1;
+        monitor[m].pin = gpio_get(ADVANCE_FRAME_PIN);
+        m++;
+    }
 
     critical_section_exit(&cs1); // Exit critical section
     return 0;
@@ -222,12 +255,9 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
     if (gpio == ADVANCE_FRAME_PIN)
     {
         critical_section_enter_blocking(&cs1);
-
+        gpio_set_irq_enabled(ADVANCE_FRAME_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false);
         if (event_mask & GPIO_IRQ_EDGE_FALL)
         {
-            // Disable further interrupts temporarily
-            gpio_set_irq_enabled(ADVANCE_FRAME_PIN, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, false);
-
             if (irq_status == 1) // If a valid signal is detected
             {
                 irq_status = 3; // Update IRQ status
@@ -235,7 +265,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                 {
                     init_frame_timing(); // Initialize frame timing at the start
                     // Enable end-of-film detection
-                    gpio_set_irq_enabled(END_OF_FILM_PIN, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true);
+                    gpio_set_irq_enabled(END_OF_FILM_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true);
                 }
 
                 queue_entry_t entry;
@@ -262,6 +292,18 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                 }
 
                 frame_counter++; // Increment the frame counter
+
+                if (m < 1000)
+                {
+                    monitor[m].frame_counter = frame_counter;
+                    monitor[m].irq_status = irq_status;
+                    monitor[m].event_mask = event_mask;
+                    monitor[m].rise = 1;
+                    monitor[m].pin = gpio_get(ADVANCE_FRAME_PIN);
+                    monitor[m].delta = absolute_time_diff_us(fstart, get_absolute_time());
+                    fstart = get_absolute_time();
+                    m++;
+                }
             }
         }
         else if (event_mask & GPIO_IRQ_EDGE_RISE)
@@ -273,7 +315,16 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                 uint64_t edge_fall_alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, NULL, false);
                 if (edge_fall_alarm_id < 0)
                 {
-                    printf("Edge_fall_alarm_id Alarm error %lld\n", edge_fall_alarm_id);
+                    printf("Edge_rise_alarm_id Alarm error %lld\n", edge_fall_alarm_id);
+                }
+                if (m < 1000)
+                {
+                    monitor[m].frame_counter = frame_counter;
+                    monitor[m].irq_status = irq_status;
+                    monitor[m].event_mask = event_mask;
+                    monitor[m].rise = 0;
+                    monitor[m].pin = gpio_get(ADVANCE_FRAME_PIN);
+                    m++;
                 }
             }
         }
@@ -285,7 +336,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
         if (event_mask & GPIO_IRQ_EDGE_RISE)
         {
             // Disable further end-of-film interrupts
-            gpio_set_irq_enabled(END_OF_FILM_PIN, GPIO_IRQ_EDGE_RISE, false);
+            gpio_set_irq_enabled(END_OF_FILM_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false);
 
             queue_entry_t entry;
             process_frame_timing(&entry, frame_counter, EOF_CMD); // Process end-of-film timing data
@@ -315,10 +366,8 @@ void init_signals(void)
     gpio_set_irq_callback(gpio_irq_callback_isr); // Set GPIO ISR callback
 
     // Initialize IRQ status and configure edge detection
-    irq_status = gpio_get_all() & (1 << ADVANCE_FRAME_PIN) ? 1 : 0;
-    gpio_set_irq_enabled((uint)ADVANCE_FRAME_PIN,
-                         irq_status ? (uint32_t)(GPIO_IRQ_EDGE_FALL) : (uint32_t)(GPIO_IRQ_EDGE_RISE),
-                         true);
+    irq_status = gpio_get(ADVANCE_FRAME_PIN);
+    gpio_set_irq_enabled(ADVANCE_FRAME_PIN, irq_status ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE, true);
 
     // Enable IRQ for the bank if not already enabled
     if (!irq_is_enabled(IO_IRQ_BANK0))
@@ -327,7 +376,7 @@ void init_signals(void)
     }
 
     // Debug output for signal initialization
-    printf("HELLO pin state %s  OUT_level=%s level=%d\n", gpio_get_dir(ADVANCE_FRAME_PIN) ? "out" : "in", gpio_get_out_level(ADVANCE_FRAME_PIN) ? "high" : "low", gpio_get(ADVANCE_FRAME_PIN));
+    printf("HELLO pin state %s  OUT_level=%s level=%d pull_up=%d  pull_down=%d\n", gpio_get_dir(ADVANCE_FRAME_PIN) ? "out" : "in", gpio_get_out_level(ADVANCE_FRAME_PIN) ? "high" : "low", gpio_get(ADVANCE_FRAME_PIN), gpio_is_pulled_up(ADVANCE_FRAME_PIN), gpio_is_pulled_down(ADVANCE_FRAME_PIN));
 
     printf("HELLO pin PASS_ON_FRAME_ADVANCE_PIN state %s  OUT_level=%s level=%d\n", gpio_get_dir(PASS_ON_FRAME_ADVANCE_PIN) ? "out" : "in", gpio_get_out_level(PASS_ON_FRAME_ADVANCE_PIN) ? "high" : "low", gpio_get(PASS_ON_FRAME_ADVANCE_PIN));
 }
@@ -361,15 +410,16 @@ int main()
     frame_signal_duration = (clock_get_hz(clk_sys) * (FRAME_ADVANCE_DURATION_US / 1.0e6)) - 1;
     eof_signal_duration = (clock_get_hz(clk_sys) * (END_OF_FILM_DURATION_US / 1.0e6)) - 1;
 
+    // Initialize GPIO pins
+    init_pins();
+
     // Setup PIO for signal generation
     pio_setup(&frame_signal_program, &pio[0], &sm[0], &offset[0], PICO_DEFAULT_LED_PIN);
     pio_setup(&frame_signal_program, &pio[1], &sm[1], &offset[1], PASS_ON_FRAME_ADVANCE_PIN);
     pio_setup(&frame_signal_program, &pio[2], &sm[2], &offset[2], PICO_DEFAULT_LED_PIN);
     pio_setup(&frame_signal_program, &pio[3], &sm[3], &offset[3], PASS_ON_END_OF_FILM_PIN);
 
-    // Initialize GPIO pins
-    init_pins();
-
+    // gpio_put(ADVANCE_FRAME_PIN, true);
     // Initialize signals and their interrupts
     init_signals();
 
