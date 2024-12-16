@@ -44,9 +44,9 @@
 #define EOF_CMD 2    ///< Command for end-of-film handling.
 
 // PIO (Programmable I/O) setup for signal handling
-static PIO pio[4];     ///< Array of PIO instances.
-static uint sm[4];     ///< Array of state machines for PIO.
-static uint offset[4]; ///< Offset addresses for PIO programs.
+static PIO pio[3];     ///< Array of PIO instances.
+static uint sm[3];     ///< Array of state machines for PIO.
+static uint offset[3]; ///< Offset addresses for PIO programs.
 
 static uint32_t frame_signal_duration = 0; ///< Frame advance signal duration in system clock cycles.
 static uint32_t eof_signal_duration = 0;   ///< End-of-film signal duration in system clock cycles.
@@ -206,6 +206,7 @@ int64_t enable_frame_advance_edge_irq(alarm_id_t id, void *user_data)
     gpio_set_irq_enabled(ADVANCE_FRAME_PIN, irq_status ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE, true);
 
     critical_section_exit(&cs1); // Exit critical section
+    
     return 0;
 }
 
@@ -223,6 +224,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
     if (gpio == ADVANCE_FRAME_PIN)
     {
         critical_section_enter_blocking(&cs1);
+        
         gpio_set_irq_enabled(ADVANCE_FRAME_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false);
         if (event_mask & GPIO_IRQ_EDGE_FALL)
         {
@@ -253,10 +255,10 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                 pio[1]->txf[sm[1]] = frame_signal_duration;
 
                 // Re-enable IRQ after debounce delay
-                uint64_t edge_rise_alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, NULL, false);
-                if (edge_rise_alarm_id < 0)
+                uint64_t edge_fall_alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, NULL, false);
+                if (edge_fall_alarm_id < 0)
                 {
-                    printf("Edge_rise_alarm_id Alarm error %llu\n", edge_rise_alarm_id);
+                    printf("Edge_rise_alarm_id Alarm error %llu\n", edge_fall_alarm_id);
                 }
 
                 frame_counter++; // Increment the frame counter
@@ -268,10 +270,10 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
             {
                 irq_status = 2; // Update IRQ status
                 // Re-enable IRQ after debounce delay
-                uint64_t edge_fall_alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, NULL, false);
-                if (edge_fall_alarm_id < 0)
+                uint64_t edge_rise_alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, NULL, false);
+                if (edge_rise_alarm_id < 0)
                 {
-                    printf("Edge_rise_alarm_id Alarm error %lld\n", edge_fall_alarm_id);
+                    printf("Edge_rise_alarm_id Alarm error %lld\n", edge_rise_alarm_id);
                 }
             }
         }
@@ -291,7 +293,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
             queue_add_blocking(&frame_queue, &entry); // Add processed data to the queue
 
             // Trigger PIO for end-of-film signal
-            pio[1]->txf[sm[2]] = eof_signal_duration;
+            pio[2]->txf[sm[2]] = eof_signal_duration;
 
             gpio_put(MOTOR_PIN, 1); // stop motor of projector
 
