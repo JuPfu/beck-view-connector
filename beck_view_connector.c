@@ -220,8 +220,6 @@ int64_t enable_frame_advance_edge_irq(alarm_id_t id, void *user_data)
  */
 void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
 {
-    gpio_acknowledge_irq(gpio, event_mask); // Acknowledge the interrupt
-
     if (gpio == ADVANCE_FRAME_PIN)
     {
         critical_section_enter_blocking(&cs1);
