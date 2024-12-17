@@ -61,6 +61,15 @@ static struct pt pt; ///< Protothread control structure.
 
 critical_section_t cs1; ///< Critical section to protect shared resources.
 
+static const int RISE = 0;
+static const int FALL = 1;
+typedef struct
+{
+    int value;
+} edge_t;
+
+static edge_t edge;
+
 /**
  * @brief Protothread for updating the display with frame timing and status information.
  *
@@ -202,11 +211,11 @@ int64_t enable_frame_advance_edge_irq(alarm_id_t id, void *user_data)
     critical_section_enter_blocking(&cs1);
 
     // Determine the current IRQ status and set the appropriate edge detection
-    irq_status = gpio_get(ADVANCE_FRAME_PIN);
+    irq_status = ((edge_t *)user_data)->value == 0;
     gpio_set_irq_enabled(ADVANCE_FRAME_PIN, irq_status ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE, true);
 
     critical_section_exit(&cs1); // Exit critical section
-    
+
     return 0;
 }
 
@@ -224,7 +233,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
     if (gpio == ADVANCE_FRAME_PIN)
     {
         critical_section_enter_blocking(&cs1);
-        
+
         gpio_set_irq_enabled(ADVANCE_FRAME_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false);
         if (event_mask & GPIO_IRQ_EDGE_FALL)
         {
@@ -235,7 +244,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                 {
                     init_frame_timing(); // Initialize frame timing at the start
                     // Enable end-of-film detection
-                    gpio_set_irq_enabled(END_OF_FILM_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true);
+                    gpio_set_irq_enabled(END_OF_FILM_PIN, GPIO_IRQ_EDGE_RISE, true);
                 }
 
                 queue_entry_t entry;
@@ -255,7 +264,8 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                 pio[1]->txf[sm[1]] = frame_signal_duration;
 
                 // Re-enable IRQ after debounce delay
-                uint64_t edge_fall_alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, NULL, false);
+                edge.value = FALL;
+                uint64_t edge_fall_alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US * 10, enable_frame_advance_edge_irq, &edge, false);
                 if (edge_fall_alarm_id < 0)
                 {
                     printf("Edge_rise_alarm_id Alarm error %llu\n", edge_fall_alarm_id);
@@ -269,8 +279,10 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
             if (irq_status == 0) // Detect valid rising edge
             {
                 irq_status = 2; // Update IRQ status
+
                 // Re-enable IRQ after debounce delay
-                uint64_t edge_rise_alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, NULL, false);
+                edge.value = RISE;
+                uint64_t edge_rise_alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, &edge, false);
                 if (edge_rise_alarm_id < 0)
                 {
                     printf("Edge_rise_alarm_id Alarm error %lld\n", edge_rise_alarm_id);
@@ -363,7 +375,6 @@ int main()
     pio_setup(&frame_signal_program, &pio[1], &sm[1], &offset[1], PASS_ON_FRAME_ADVANCE_PIN);
     pio_setup(&frame_signal_program, &pio[2], &sm[2], &offset[2], PASS_ON_END_OF_FILM_PIN);
 
-    // gpio_put(ADVANCE_FRAME_PIN, true);
     // Initialize signals and their interrupts
     init_signals();
 
