@@ -250,13 +250,6 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                 queue_entry_t entry;
                 process_frame_timing(&entry, frame_counter, UPDATE_CMD); // Process frame timing data
 
-                // Check if the frame timing is too fast (debounce protection)
-                int64_t delta = absolute_time_diff_us(entry.frame_start, entry.frame_end);
-                if (delta < DEBOUNCE_DELAY_US)
-                {
-                    printf("Alert --- too fast, too furious %u %llu us\n", entry.frame_counter, delta);
-                }
-
                 queue_add_blocking(&frame_queue, &entry); // Add processed data to the queue
 
                 // Trigger PIO for frame advance signal
