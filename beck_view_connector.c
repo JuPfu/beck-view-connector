@@ -37,7 +37,23 @@
 #define FRAME_ADVANCE_DURATION_US 8000  ///< Duration in microseconds to maintain frame advance signal.
 #define END_OF_FILM_DURATION_US 1000000 ///< Duration in microseconds to maintain end-of-film signal.
 
-#define DEBOUNCE_DELAY_US 1000 ///< Debounce duration for signal edges.
+// The projector shutter has a single blade of about 70 degrees. The maximum speed of the shutter is
+// 24 frames per second. The time for a single frame is 1/24 = 41.67 ms. The shutter blade covers the
+// projector lens for about 70 degrees of the 360 degrees of the shutter. The time for the shutter blade
+// to cover the lens is 41.67 ms * 70 / 360 = 8.10 ms.
+// The shutter blade begins to cover the lens (the optocoupler). This is when the rising edge of the frame
+// advance signal is emitted. During the EDGE_RISE_DEBOUNCE_DELAY_US time (2000 us) rising edge interrupts
+// are disabled.
+// As soon as the lens is uncovered by the shutter blade, the falling edge of the frame advance signal is
+// emitted and the frame advance signal is passed on to the FT232H chip (see beck-view-digitize). The signal
+// to the FT232H chip is held high for FRAME_ADVANCE_DURATION_US (8000 us). The FT232H chip sends the
+// frame advance signal to the PC.
+// There shall be no further edge fall interrupts while the frame advance signal is emitted to the FT232H chip.
+// Therefore the debounce delay for the falling edge (EDGE_FALL_DEBOUNCE_DELAY_US) must be greater than
+// FRAME_ADVANCE_DURATION_US.
+//
+#define EDGE_FALL_DEBOUNCE_DELAY_US 10000 ///< Debounce duration for falling edge.
+#define EDGE_RISE_DEBOUNCE_DELAY_US 2000  ///< Debounce duration for rising edge.
 
 // Commands for the queue to manage updates and events
 #define UPDATE_CMD 1 ///< Command for updating display.
@@ -258,7 +274,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
 
                 // Re-enable IRQ after debounce delay
                 edge.value = FALL;
-                uint64_t edge_fall_alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US * 10, enable_frame_advance_edge_irq, &edge, false);
+                uint64_t edge_fall_alarm_id = add_alarm_in_us(EDGE_FALL_DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, &edge, false);
                 if (edge_fall_alarm_id < 0)
                 {
                     printf("Edge_rise_alarm_id Alarm error %llu\n", edge_fall_alarm_id);
@@ -275,7 +291,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
 
                 // Re-enable IRQ after debounce delay
                 edge.value = RISE;
-                uint64_t edge_rise_alarm_id = add_alarm_in_us(DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, &edge, false);
+                uint64_t edge_rise_alarm_id = add_alarm_in_us(EDGE_RISE_DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, &edge, false);
                 if (edge_rise_alarm_id < 0)
                 {
                     printf("Edge_rise_alarm_id Alarm error %lld\n", edge_rise_alarm_id);
@@ -356,6 +372,7 @@ int main()
 
     led_init(); // Initialize and blink LED as a status indicator
 
+    hard_assert(EDGE_FALL_DEBOUNCE_DELAY_US > FRAME_ADVANCE_DURATION_US);
     // Calculate signal durations in clock cycles
     frame_signal_duration = (clock_get_hz(clk_sys) * (FRAME_ADVANCE_DURATION_US / 1.0e6)) - 2;
     eof_signal_duration = (clock_get_hz(clk_sys) * (END_OF_FILM_DURATION_US / 1.0e6)) - 2;
@@ -371,7 +388,7 @@ int main()
     // Initialize signals and their interrupts
     init_signals();
 
-    // Main loop (can add application-specific tasks here)
+    // Main loop (as all work is done in interrupt handlers this loop is empty and could be removed)
     while (1)
     {
     }

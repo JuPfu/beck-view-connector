@@ -55,8 +55,8 @@
 //#define ILI9341_PWCTR6     0xFC
 
 #define MHz                 1000000L
-#define PIX_WIDTH           240
-#define PIX_HEIGHT          320
+#define PIX_WIDTH           240 /* 240 */
+#define PIX_HEIGHT          135 /* 320 */
 #define PIX_BITCOUNT        (PIX_WIDTH * PIX_HEIGHT)
 #define PIX_BYTECOUNT       (PIX_BITCOUNT / 8)
 #define PIX_W32COUNT        (PIX_BITCOUNT / 32)
