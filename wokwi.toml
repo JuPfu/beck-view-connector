@@ -1,4 +1,0 @@
-[wokwi]
-version = 1
-firmware = 'build/beck_view_connector.hex'
-elf = 'build/beck_view_connector.uf2'
