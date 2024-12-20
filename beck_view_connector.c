@@ -39,7 +39,7 @@
 
 // The projector shutter has a single blade of about 70 degrees. The maximum speed of the shutter is
 // 24 frames per second. The time for a single frame is 1/24 = 41.67 ms. The shutter blade covers the
-// projector lens for about 70 degrees of the 360 degrees of the shutter. The time for the shutter blade
+// projector lens for about 70 degrees of the 360 degrees area. The time for the shutter blade
 // to cover the lens is 41.67 ms * 70 / 360 = 8.10 ms.
 // The shutter blade begins to cover the lens (the optocoupler). This is when the rising edge of the frame
 // advance signal is emitted. During the EDGE_RISE_DEBOUNCE_DELAY_US time (2000 us) rising edge interrupts
