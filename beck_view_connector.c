@@ -45,9 +45,9 @@
 // advance signal is emitted. During the EDGE_RISE_DEBOUNCE_DELAY_US time (2000 us) rising edge interrupts
 // are disabled.
 // As soon as the lens is uncovered by the shutter blade, the falling edge of the frame advance signal is
-// emitted and the frame advance signal is passed on to the FT232H chip (see beck-view-digitize). The signal
-// to the FT232H chip is held high for FRAME_ADVANCE_DURATION_US (8000 us). The FT232H chip sends the
-// frame advance signal to the PC.
+// emitted and the frame advance signal is passed on to the FT232H chip (see https://github.com/JuPfu/beck-view-digitalize). 
+// The signal to the FT232H chip is held high for FRAME_ADVANCE_DURATION_US (8000 us). The FT232H chip sends
+// the frame advance signal to the PC.
 // There shall be no further edge fall interrupts while the frame advance signal is emitted to the FT232H chip.
 // Therefore the debounce delay for the falling edge (EDGE_FALL_DEBOUNCE_DELAY_US) must be greater than
 // FRAME_ADVANCE_DURATION_US.
