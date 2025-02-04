@@ -1,5 +1,3 @@
-#include "stdio.h"
-
 #include "frame_timing.h"
 
 static absolute_time_t start_time, frame_start, frame_end;
