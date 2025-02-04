@@ -36,22 +36,23 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(beck_view_connector beck_view_connector.c )
+add_executable(beck_view_connector beck_view_connector.cpp)
 
 pico_set_program_name(beck_view_connector "beck_view_connector")
-pico_set_program_version(beck_view_connector "0.5")
+pico_set_program_version(beck_view_connector "0.9")
 
 # by default the header is generated into the build dir
 pico_generate_pio_header(beck_view_connector ${CMAKE_CURRENT_LIST_DIR}/frame_signal.pio)
 
 target_sources(beck_view_connector PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}/lib/assert.c
-        ${CMAKE_CURRENT_LIST_DIR}/ili9341/ili9341.c
-        ${CMAKE_CURRENT_LIST_DIR}/touch/msp2807_touch.c
-        ${CMAKE_CURRENT_LIST_DIR}/touch/msp2807_calibration.c
+        ${CMAKE_CURRENT_LIST_DIR}/st7789/ST7789_TFT.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/st7789/ST7789_TFT_Print.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/st7789/ST7789_TFT_graphics.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/st7789/ST7789_TFT_Font.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/st7789/ST7789_TFT_Bitmap_Data.cpp
         ${CMAKE_CURRENT_LIST_DIR}/frame_timing.c
-        ${CMAKE_CURRENT_LIST_DIR}/display.c
-        ${CMAKE_CURRENT_LIST_DIR}/beck_view_connector.c
+        ${CMAKE_CURRENT_LIST_DIR}/display.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/beck_view_connector.cpp
         )
 
 # Modify the below lines to enable/disable output over UART/USB

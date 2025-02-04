@@ -15,18 +15,20 @@
 #include "stdio.h"
 #include "string.h"
 
-#include "ili9341/ili9341.h"
 #include <stdbool.h>
 
 #include "pt_v1_3.h"
 
-#include "display.h"
 #include "frame_timing.h"
+#include "display.h"
 
 #include "frame_signal.pio.h"
 
+void init_signals(void);
+
 // Define GPIO pins for frame advance and end-of-film signals
 #define MOTOR_PIN 0         ///< GPIO pin set permantly high on EOF to stop projector motor.
+#define RESET_PIN 1         ///< GPIO pin set high on button press.
 #define ADVANCE_FRAME_PIN 4 ///< GPIO pin for frame advance signal input.
 #define END_OF_FILM_PIN 5   ///< GPIO pin for end-of-film signal input.
 
@@ -45,7 +47,7 @@
 // advance signal is emitted. During the EDGE_RISE_DEBOUNCE_DELAY_US time (2000 us) rising edge interrupts
 // are disabled.
 // As soon as the lens is uncovered by the shutter blade, the falling edge of the frame advance signal is
-// emitted and the frame advance signal is passed on to the FT232H chip (see https://github.com/JuPfu/beck-view-digitalize). 
+// emitted and the frame advance signal is passed on to the FT232H chip (see https://github.com/JuPfu/beck-view-digitalize).
 // The signal to the FT232H chip is held high for FRAME_ADVANCE_DURATION_US (8000 us). The FT232H chip sends
 // the frame advance signal to the PC.
 // There shall be no further edge fall interrupts while the frame advance signal is emitted to the FT232H chip.
@@ -71,6 +73,7 @@ static uint frame_counter = 0; ///< Frame counter to track total frames processe
 
 static volatile uint irq_status = 0; ///< Stores IRQ status for frame advance signal.
 
+static int lock_num;        /// Lock number for critical section.
 static queue_t frame_queue; ///< Queue for frame timing data and command exchange between cores.
 
 static struct pt pt; ///< Protothread control structure.
@@ -138,8 +141,7 @@ static PT_THREAD(update_display(struct pt *pt))
  */
 void core1_entry()
 {
-    ili9341_config_t hw_config;
-    display_init(&hw_config);      // Initialize the display
+    display_init();                // Initialize the display
     display_start_info();          // Display startup information
     PT_INIT(&pt);                  // Initialize the protothread
     pt_add_thread(update_display); // Add the display update thread
@@ -193,6 +195,7 @@ void init_pins()
     init_gpio_pin(END_OF_FILM_PIN, false, false);         // Configure end-of-film pin as input
     init_gpio_pin(PASS_ON_FRAME_ADVANCE_PIN, true, true); // Configure pass-on frame advance pin as output
     init_gpio_pin(PASS_ON_END_OF_FILM_PIN, true, true);   // Configure pass-on end-of-film pin as output
+    init_gpio_pin(RESET_PIN, false, false);               // Configure reset pin as input
     init_gpio_pin(MOTOR_PIN, false, true);                // Configure motor pin as output
 }
 
@@ -294,7 +297,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                 uint64_t edge_rise_alarm_id = add_alarm_in_us(EDGE_RISE_DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, &edge, false);
                 if (edge_rise_alarm_id < 0)
                 {
-                    printf("Edge_rise_alarm_id Alarm error %lld\n", edge_rise_alarm_id);
+                    printf("Advance Frame Pin: Edge_rise_alarm_id Alarm error %lld\n", edge_rise_alarm_id);
                 }
             }
         }
@@ -307,7 +310,11 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
         {
             // Disable further end-of-film interrupts
             gpio_set_irq_enabled(END_OF_FILM_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false);
-
+                    
+            critical_section_enter_blocking(&cs1);
+            gpio_set_irq_enabled(ADVANCE_FRAME_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false);
+            critical_section_exit(&cs1); // Exit critical section
+            
             queue_entry_t entry;
             process_frame_timing(&entry, frame_counter, EOF_CMD); // Process end-of-film timing data
 
@@ -319,6 +326,28 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
             gpio_put(MOTOR_PIN, 1); // stop motor of projector
 
             frame_counter = 0; // Reset frame counter
+        }
+    }
+    else if (gpio == RESET_PIN)
+    {
+        if (event_mask & GPIO_IRQ_EDGE_FALL)
+        {
+            // Temporarily disable reset interrupts
+            gpio_set_irq_enabled(RESET_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false);
+
+            for (int i = 0; i < count_of(pio); i++)
+            {
+                if (pio_sm_is_claimed(pio[i], sm[i]))
+                {
+                    pio_sm_drain_tx_fifo(pio[i], sm[i]);
+                }
+            }
+
+            frame_counter = 0; // Reset frame counter
+
+            init_signals(); // Initialize signals and their interrupts
+
+            display_start_info(); // Display startup information
         }
     }
     else
@@ -339,6 +368,8 @@ void init_signals(void)
     // Initialize IRQ status and configure edge detection
     irq_status = gpio_get(ADVANCE_FRAME_PIN);
     gpio_set_irq_enabled(ADVANCE_FRAME_PIN, irq_status ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE, true);
+
+    gpio_set_irq_enabled(RESET_PIN, GPIO_IRQ_EDGE_FALL, true);
 
     // Enable IRQ for the bank if not already enabled
     if (!irq_is_enabled(IO_IRQ_BANK0))
@@ -364,13 +395,13 @@ int main()
     critical_section_init(&cs1); // Initialize critical section
 
     // Initialize frame queue with a spinlock
-    int lock_num = spin_lock_claim_unused(true);
+    lock_num = spin_lock_claim_unused(true);
     queue_init_with_spinlock(&frame_queue, sizeof(queue_entry_t), 1, lock_num);
 
     multicore_reset_core1();             // Reset core 1
     multicore_launch_core1(core1_entry); // Launch core 1 entry function
 
-    led_init(); // Initialize and blink LED as a status indicator
+    // led_init(); // Initialize and blink LED as a status indicator
 
     hard_assert(EDGE_FALL_DEBOUNCE_DELAY_US > FRAME_ADVANCE_DURATION_US);
     // Calculate signal durations in clock cycles

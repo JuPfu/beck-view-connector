@@ -1,10 +1,10 @@
 #ifndef DISPLAY_H
 #define DISPLAY_H
 
-#include "ili9341/ili9341.h"
+#include "pico/stdlib.h"
 
 // Initialize the display module
-void display_init(ili9341_config_t *hw_config);
+void display_init();
 
 void display_start_info(void);
 
