@@ -266,7 +266,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                     gpio_set_irq_enabled(END_OF_FILM_PIN, GPIO_IRQ_EDGE_RISE, true);
                 }
 
-                queue_entry_t entry;
+                queue_entry_t entry = {0}; // Initialize queue entry
                 process_frame_timing(&entry, frame_counter, UPDATE_CMD); // Process frame timing data
 
                 queue_add_blocking(&frame_queue, &entry); // Add processed data to the queue
