@@ -12,7 +12,7 @@
 // Section :: Globals
 ST7789_TFT myTFT;
 
-void  display_init()
+void display_init()
 {
     //*************** USER OPTION 0 SPI_SPEED + TYPE ***********
 
@@ -79,18 +79,9 @@ void display_frame_info(uint frame_counter, float fps, float duration)
     myTFT.TFTsetCursor(90, 46);
     myTFT.print(frame_buf);
 
-    if (frame_counter > 0)
-    {
-        snprintf(fps_buf, sizeof(fps_buf), "%9.4f", fps);
-        myTFT.TFTsetCursor(72, 76);
-        myTFT.print(fps_buf);
-    }
-    else
-    {
-        snprintf(fps_buf, sizeof(fps_buf), "%9.4f", 0.0f);
-        myTFT.TFTsetCursor(72, 76);
-        myTFT.print(fps_buf);
-    }
+    snprintf(fps_buf, sizeof(fps_buf), "%9.4f", frame_counter > 0 ? fps : 0.0f);
+    myTFT.TFTsetCursor(72, 76);
+    myTFT.print(fps_buf);
 
     snprintf(duration_buf, sizeof(duration_buf), "%9.4f", duration);
     myTFT.TFTsetCursor(72, 104);
@@ -105,7 +96,7 @@ void display_eof_info(uint frame_counter, float avg_fps, float duration)
     myTFT.TFTdrawText(0, 12, "Beck-View-Connector", ST7789_YELLOW, ST7789_RED);
     myTFT.TFTdrawText(192, 12, "eof", ST7789_RED, ST7789_NAVY);
 
-    myTFT.TFTsetCursor(5, 20); // Test Arial round font 9
+    myTFT.TFTsetCursor(5, 20);
     myTFT.TFTFontNum(myTFT.TFTFont_ArialRound);
 
     myTFT.TFTsetCursor(0, 46);
