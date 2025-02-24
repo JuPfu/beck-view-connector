@@ -12,6 +12,7 @@
   - **Frame Advancement Detection:**  
     A photoelectric sensor triggers when a [rotating shutter](https://github.com/user-attachments/assets/5ff01cb6-593f-48e8-9ff4-b41a6fde65f2) does not block the sensor any more, which coincides with the current frame at rest in front of the film projector lens.
     The frame advance signals from the photoelectric sensor are passed on to [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize). Each frame advance signal is held for 8ms. Based on the frame advance signals [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) triggers the camera mounted in front of the film projector lens.
+    Here some more details of the process:
     The projector shutter has a single blade of about 70 degrees. The maximum speed of the shutter is
     24 frames per second. The time for a single frame is 1/24 = 41.67 ms. The shutter blade covers the
     projector lens for about 70 degrees of the 360 degrees area. The time for the shutter blade
