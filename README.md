@@ -1,6 +1,16 @@
   # Beck View Connector
 
   **Beck View Connector** is a sub-project of the [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) project. This project provides an interface and processing platform for a **Super 8 projector** using a **Raspberry Pi Pico**. It enables the detection, synchronization, and handling of frame advancements and end-of-film events, with real-time data displayed on a connected screen.
+  
+  The projector shutter has a single blade of about 70 degrees. The maximum speed of the shutter is
+  24 frames per second. The time for a single frame is 1/24 = 41.67 ms. The shutter blade covers the
+  projector lens for about 70 degrees of the 360 degrees area. The time for the shutter blade
+  to cover the lens is 41.67 ms * 70 / 360 = 8.10 ms.
+  The shutter blade begins to cover the lens (the optocoupler). This is when the rising edge of the frame advance signal is emitted. During the EDGE_RISE_DEBOUNCE_DELAY_US time (2000 us) rising edge interrupts are disabled.
+  As soon as the lens is uncovered by the shutter blade, the falling edge of the frame advance signal is
+  emitted and the frame advance signal is passed on to the FT232H chip (see [beck-view-digitalize](https://github.com/JuPfu/beck-view-digitalize)).
+  The signal to the FT232H chip is held high for FRAME_ADVANCE_DURATION_US (8000 us). The FT232H chip sends the frame advance signal to the PC.
+  There shall be no further edge fall interrupts while the frame advance signal is emitted to the FT232H chip. Therefore the debounce delay for the falling edge (EDGE_FALL_DEBOUNCE_DELAY_US) must be greater than FRAME_ADVANCE_DURATION_US.
 
   ![Prototype](./assets/img/beck-view-connector.png)
   *Image: Prototype of the beck-view-connector which is located between the film projector and [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) 
