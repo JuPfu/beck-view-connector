@@ -32,6 +32,9 @@ void init_signals(void);
 #define ADVANCE_FRAME_PIN 4 ///< GPIO pin for frame advance signal input.
 #define END_OF_FILM_PIN 5   ///< GPIO pin for end-of-film signal input.
 
+#define ADVANCE_FRAME_LED 26 ///< GPIO pin for frame advance LED.
+#define END_OF_FILM_LED 27   ///< GPIO pin for end-of-film LED.
+
 #define PASS_ON_FRAME_ADVANCE_PIN 2 //< GPIO pin to propagate frame advance signal.
 #define PASS_ON_END_OF_FILM_PIN 3   ///< GPIO pin to propagate end-of-film signal.
 
@@ -61,10 +64,15 @@ void init_signals(void);
 #define UPDATE_CMD 1 ///< Command for updating display.
 #define EOF_CMD 2    ///< Command for end-of-film handling.
 
+#define ADVANCE_FRAME_PIN_PIO 0 ///< Signal for frame advance.
+#define END_OF_FILM_PIN_PIO 1   ///< Signal for end-of-film.
+#define ADVANCE_FRAME_LED_PIO 2 ///< Signal for frame advance.
+#define END_OF_FILM_LED_PIO 3   ///< Signal for frame advance.
+
 // PIO (Programmable I/O) setup for signal handling
-static PIO pio[3];     ///< Array of PIO instances.
-static uint sm[3];     ///< Array of state machines for PIO.
-static uint offset[3]; ///< Offset addresses for PIO programs.
+static PIO pio[4];     ///< Array of PIO instances.
+static uint sm[4];     ///< Array of state machines for PIO.
+static uint offset[4]; ///< Offset addresses for PIO programs.
 
 static uint32_t frame_signal_duration = 0; ///< Frame advance signal duration in system clock cycles.
 static uint32_t eof_signal_duration = 0;   ///< End-of-film signal duration in system clock cycles.
@@ -197,6 +205,8 @@ void init_pins()
     init_gpio_pin(PASS_ON_END_OF_FILM_PIN, true, true);   // Configure pass-on end-of-film pin as output
     init_gpio_pin(RESET_PIN, false, false);               // Configure reset pin as input
     init_gpio_pin(MOTOR_PIN, false, true);                // Configure motor pin as output
+    init_gpio_pin(ADVANCE_FRAME_LED, false, true);        // Configure frame advance LED as output
+    init_gpio_pin(END_OF_FILM_LED, false, true);          // Configure end of film LED pin as output
 }
 
 /**
@@ -266,14 +276,14 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                     gpio_set_irq_enabled(END_OF_FILM_PIN, GPIO_IRQ_EDGE_RISE, true);
                 }
 
-                queue_entry_t entry = {0}; // Initialize queue entry
+                queue_entry_t entry = {0};                               // Initialize queue entry
                 process_frame_timing(&entry, frame_counter, UPDATE_CMD); // Process frame timing data
 
                 queue_add_blocking(&frame_queue, &entry); // Add processed data to the queue
 
-                // Trigger PIO for frame advance signal
-                pio[0]->txf[sm[0]] = frame_signal_duration;
-                pio[1]->txf[sm[1]] = frame_signal_duration;
+                // Trigger PIO for frame advance signal and light LED
+                pio[ADVANCE_FRAME_PIN_PIO]->txf[sm[ADVANCE_FRAME_PIN_PIO]] = frame_signal_duration;
+                pio[ADVANCE_FRAME_LED_PIO]->txf[sm[ADVANCE_FRAME_LED_PIO]] = frame_signal_duration;
 
                 // Re-enable IRQ after debounce delay
                 edge.value = FALL;
@@ -310,18 +320,19 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
         {
             // Disable further end-of-film interrupts
             gpio_set_irq_enabled(END_OF_FILM_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false);
-                    
+
             critical_section_enter_blocking(&cs1);
             gpio_set_irq_enabled(ADVANCE_FRAME_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false);
             critical_section_exit(&cs1); // Exit critical section
-            
+
             queue_entry_t entry;
             process_frame_timing(&entry, frame_counter, EOF_CMD); // Process end-of-film timing data
 
             queue_add_blocking(&frame_queue, &entry); // Add processed data to the queue
 
-            // Trigger PIO for end-of-film signal
-            pio[2]->txf[sm[2]] = eof_signal_duration;
+            // Trigger PIO for end-of-film signal and light LED
+            pio[END_OF_FILM_PIN_PIO]->txf[sm[END_OF_FILM_PIN_PIO]] = eof_signal_duration;
+            pio[END_OF_FILM_LED_PIO]->txf[sm[END_OF_FILM_LED_PIO]] = eof_signal_duration;
 
             gpio_put(MOTOR_PIN, 1); // stop motor of projector
 
@@ -412,9 +423,10 @@ int main()
     init_pins();
 
     // Setup PIO for signal generation
-    pio_setup(&frame_signal_program, &pio[0], &sm[0], &offset[0], PICO_DEFAULT_LED_PIN);
-    pio_setup(&frame_signal_program, &pio[1], &sm[1], &offset[1], PASS_ON_FRAME_ADVANCE_PIN);
-    pio_setup(&frame_signal_program, &pio[2], &sm[2], &offset[2], PASS_ON_END_OF_FILM_PIN);
+    pio_setup(&frame_signal_program, &pio[ADVANCE_FRAME_PIN_PIO], &sm[ADVANCE_FRAME_PIN_PIO], &offset[ADVANCE_FRAME_PIN_PIO], PASS_ON_FRAME_ADVANCE_PIN);
+    pio_setup(&frame_signal_program, &pio[END_OF_FILM_PIN_PIO], &sm[END_OF_FILM_PIN_PIO], &offset[END_OF_FILM_PIN_PIO], PASS_ON_END_OF_FILM_PIN);
+    pio_setup(&frame_signal_program, &pio[ADVANCE_FRAME_LED_PIO], &sm[ADVANCE_FRAME_LED_PIO], &offset[ADVANCE_FRAME_LED_PIO], ADVANCE_FRAME_LED);
+    pio_setup(&frame_signal_program, &pio[END_OF_FILM_LED_PIO], &sm[END_OF_FILM_LED_PIO], &offset[END_OF_FILM_LED_PIO], END_OF_FILM_LED);
 
     // Initialize signals and their interrupts
     init_signals();

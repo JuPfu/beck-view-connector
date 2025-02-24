@@ -1,5 +1,5 @@
 .program frame_signal
-; The frame advance signal from the opto-coupleris passed on to the FT232H controller
+; The frame advance signal from the opto-coupler is passed on to the FT232H controller
 ; via the PASS_ON_FRAME_ADVANCE_PIN. The signal is activated for a certain amount of time (e.g. 8 ms).
 ;
 ; Input parameters

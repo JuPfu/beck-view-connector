@@ -39,7 +39,7 @@ pico_sdk_init()
 add_executable(beck_view_connector beck_view_connector.cpp)
 
 pico_set_program_name(beck_view_connector "beck_view_connector")
-pico_set_program_version(beck_view_connector "0.9")
+pico_set_program_version(beck_view_connector "1.0")
 
 # by default the header is generated into the build dir
 pico_generate_pio_header(beck_view_connector ${CMAKE_CURRENT_LIST_DIR}/frame_signal.pio)
