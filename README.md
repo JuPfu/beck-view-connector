@@ -1,19 +1,23 @@
 # Beck View Connector
 
-**Beck View Connector** is a sub-project within the broader [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) initiative. This project provides an interface and processing platform for a **Super 8 projector** using a **Raspberry Pi Pico**. It enables the detection, synchronization, and handling of frame advancements and end-of-film events, with real-time data displayed on a connected screen.
+**Beck View Connector** is a sub-project of the [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) project. This project provides an interface and processing platform for a **Super 8 projector** using a **Raspberry Pi Pico**. It enables the detection, synchronization, and handling of frame advancements and end-of-film events, with real-time data displayed on a connected screen.
+
+![Prototype](./assets/img/beck-view-connector.png)
+*Image: Prototype of the beck-view-connector which is located between the film projector and [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) 
 
 ---
 
 ## Features
 
 - **Frame Advancement Detection:**  
-  Processes signals from the projector to track frame advancements accurately.
+  A photoelectric sensor triggers when a [rotating shutter](https://github.com/user-attachments/assets/5ff01cb6-593f-48e8-9ff4-b41a6fde65f2) does not block the sensor any more, which coincides with the current frame at rest in front of the film projector lens.
+  The frame advance signals from the photoelectric sensor are passed on to [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize). Each frame advance signal is held for 8ms. Based on the frame advance signals [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) triggers the camera mounted in front of the film projector lens.
 
 - **End-of-Film Detection:**  
-  Automatically detects when the film ends and updates the display accordingly.
+  A second photoelectric sensor is used to detect the end of film. The end of film signal is passed on to [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize). The end of film signal is held for 1 second. On receiving the end of film signal [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) terminates.
 
 - **Real-Time Display:**  
-  Integrates with an ILI9341 TFT screen to provide frame timing, frames-per-second (FPS), and other statistics.
+  Integrates with an ILI9341 TFT screen to provide frame timing, frames-per-second (FPS), and other statistics. The frame count displayed on the TFT screen after end of film is reached can be compared with the number of frames stored on disc.
 
 - **Debounced GPIO Handling:**  
   Ensures stable signal processing with debouncing for all GPIO pin events.
@@ -24,6 +28,9 @@
 - **Customizable Timing Configurations:**  
   Configurable delays for frame and end-of-film signal processing.
 
+- **Modular and Extensible:**  
+  Designed with a modular structure to allow easy integration and future enhancements.
+
 ---
 
 ## Requirements
@@ -31,7 +38,7 @@
 - **Hardware:**
   - Raspberry Pi Pico
   - ILI9341 TFT Display (or compatible display)
-  - Super 8 projector with frame and end-of-film signal outputs
+  - Super 8 projector with frame advance and end-of-film signal outputs
   - GPIO wiring for projector integration
 
 - **Software:**
@@ -139,8 +146,8 @@ This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) f
 ## Acknowledgments
 
 - The **Raspberry Pi Foundation** for the hardware and SDK.
-- Contributors to the **Beck View Digitize** project.
+- The open-source community for providing valuable tools and libraries.
 
 For more details on the parent project, visit the [Beck View Digitize repository](https://github.com/JuPfu/beck-view-digitize).
 
---- 
+---
