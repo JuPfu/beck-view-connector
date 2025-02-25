@@ -135,16 +135,25 @@ Leverages a lightweight threading system for efficient multitasking.
 ## Project Structure
 
 ```plaintext
-  beck-view-connector/
-  ├── src/
-  │   ├── beck-view-connector.c   # Main implementation file
-  │   ├── display.c               # Display handling logic
-  │   ├── frame_timing.c          # Frame timing calculations
-  │   └── pt_v1_3.h               # Protothreading system
-  ├── include/
-  │   └── *.h                     # Header files
-  ├── CMakeLists.txt              # Build configuration
-  └── README.md                   # Project documentation
+beck-view-connector/
+├── .vscode/                 # Configuration files for Visual Studio Code
+├── examples/                # Example applications or usage scenarios
+├── extra/                   # Additional resources or utilities
+├── include/
+│   └── st7789/              # Header files for the ST7789 display driver
+├── st7789/                  # Source files for the ST7789 display driver
+├── .gitignore               # Specifies files to ignore in version control
+├── CMakeLists.txt           # Build configuration file for CMake
+├── README.md                # Project documentation
+├── beck_view_connector.cpp  # Main implementation file
+├── display.cpp              # Display handling logic
+├── display.h                # Header for display handling
+├── frame_signal.pio         # PIO program for frame signal processing
+├── frame_timing.c           # Frame timing calculations
+├── frame_timing.h           # Header for frame timing calculations
+├── pico_sdk_import.cmake    # CMake script to import the Pico SDK
+├── pt_v1_3.h                # Protothreading system header
+└── types.h                  # Type definitions used across the project
 ```
 
 ---
