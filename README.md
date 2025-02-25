@@ -11,7 +11,7 @@
 
 [beck-view-connector](https://github.com/JuPfu/beck-view-connector) interfaces with the photoelectric sensors that generate frame advance and end-of-film signals. These signals are then transmitted to the computer running [beck-view-digitize](https://github.com/JuPfu/beck-view-digitize). The compiled [beck-view-connector](https://github.com/JuPfu/beck-view-connector) firmware must be flashed to a Raspberry Pi Pico, which processes these signals and forwards them appropriately.
 
-![beck-view](./assets/img/beck-view-overview.png)
+![beck-view](./assets/img/beck-view-overview.jpg)
 
 ## Features
 
@@ -62,12 +62,14 @@ Designed with a modular structure to allow easy integration and future enhanceme
 ## Requirements
 
 **Hardware:**
+
 - Raspberry Pi Pico
 - ILI9341 TFT Display (or compatible display)
 - A photoelectric sensor to trigger frame advance signals and a photoelectric sensor to emit an end-of-film signal
 - GPIO wiring
 
 **Software:**
+
 - Recommended IDE for this sub-project is Visual Studio Code 
 - The plugin <em>Raspberry Pi Pico</em> which also cares for the installation of a compatible toolchain for Raspberry Pi Pico (e.g., `arm-none-eabi-gcc`)
 
