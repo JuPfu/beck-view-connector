@@ -2,7 +2,7 @@
 
 **Beck View Connector** is a sub-project of the [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) project. This component serves as an intermediary between the photoelectric sensors attached to the film projector and the computer running Beck View Digitize. It enables the detection, synchronization, and handling of frame advancements and end-of-film events, with real-time data displayed on a connected TFT screen.
 
-![Prototype](./assets/img/beck-view-connector.png)
+![Prototype](./assets/img/beck-view-connector.jpg)
 *Image: Prototype of the Beck View Connector, positioned between the film projector and [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) 
 
 ---
