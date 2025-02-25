@@ -107,7 +107,7 @@ After building, flash the `beck-view-connector.uf2` file to your Pico:
   | GPIO Pin | Function                                              |
   |----------|-------------------------------------------------------|
   | 0        | Set permantly high on EOF to stop the projector motor |
-  | 1        | Rest pin set high on button press                     |
+  | 1        | Reset pin set high on button press                    |
   | 2        | Pass on Frame Advance Signal to FT232H controller     |
   | 3        | Pass on End-of-Film Signal to FT232H controller       |
   | 4        | Frame Advance Signal Input                            |
@@ -119,9 +119,7 @@ After building, flash the `beck-view-connector.uf2` file to your Pico:
 
 ## Usage
 
-1. **Power Up:** Connect the Raspberry Pi Pico to power. The LED should blink during initialization.
-2. **Connect Signals:** Ensure the Super 8 projector signals are correctly connected to the specified GPIO pins.
-3. **Observe Display:** The TFT screen will display real-time frame information and indicate when the film ends.
+**Observe Display:** The TFT screen will display real-time frame information and indicate when the film ends.
 
 ---
 
