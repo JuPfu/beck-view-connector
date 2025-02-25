@@ -1,33 +1,43 @@
 # Beck View Connector
 
-**Beck View Connector** is a sub-project of the [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) project. This project connects the photoelectric sensors attached to the film projector to the computer running  [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize). It enables the detection, synchronization, and handling of frame advancements and end-of-film events, with real-time data displayed on a connected screen.
+**Beck View Connector** is a sub-project of the [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) project. This component serves as an intermediary between the photoelectric sensors attached to the film projector and the computer running Beck View Digitize. It enables the detection, synchronization, and handling of frame advancements and end-of-film events, with real-time data displayed on a connected TFT screen.
 
 ![Prototype](./assets/img/beck-view-connector.png)
-*Image: Prototype of the beck-view-connector which is located between the film projector and [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) 
+*Image: Prototype of the Beck View Connector, positioned between the film projector and [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) 
 
 ---
 
 ## Overview
 
-[beck-view-connector](https://github.com/JuPfu/beck-view-connector) connects the photoelectric sensor emitting frame advance signals and the photoelectric sensor emitting an end-of-film signal to the computer running [beck-view-digitize](https://github.com/JuPfu/beck-view-digitize). The generated binary program [beck-view-connector](https://github.com/JuPfu/beck-view-connector) has to be flashed to the Rasperry Pi Pico.
+[beck-view-connector](https://github.com/JuPfu/beck-view-connector) interfaces with the photoelectric sensors that generate frame advance and end-of-film signals. These signals are then transmitted to the computer running [beck-view-digitize](https://github.com/JuPfu/beck-view-digitize). The compiled [beck-view-connector](https://github.com/JuPfu/beck-view-connector) firmware must be flashed to a Raspberry Pi Pico, which processes these signals and forwards them appropriately.
 
 ![beck-view](./assets/img/beck-view-overview.png)
 
 ## Features
 
-**Frame Advancement Detection:**  
+**Frame Advancement Detection:**
+A photoelectric sensor detects when the film's [rotating shutter](https://github.com/user-attachments/assets/5ff01cb6-593f-48e8-9ff4-b41a6fde65f2) no longer blocks the sensor, indicating a stable frame position in front of the projector lens. The frame advance signals are passed to [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize), ensuring synchronization with the camera capturing the film frames.
+
 A photoelectric sensor triggers when a [rotating shutter](https://github.com/user-attachments/assets/5ff01cb6-593f-48e8-9ff4-b41a6fde65f2) does not block the sensor any more, which coincides with the current frame at rest in front of the film projector lens.
 The frame advance signals from the photoelectric sensor are passed on to [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize). Each frame advance signal is held for 8ms. Based on the frame advance signals [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) triggers the camera mounted in front of the film projector lens.
 
-Here some more details of the process:
-The projector shutter has a single blade of about 70 degrees. The maximum speed of the shutter is
-24 frames per second. The time for a single frame is 1/24 = 41.67 ms. The shutter blade covers the
-projector lens for about 70 degrees of the 360 degrees area. The time for the shutter blade
-to cover the lens is 41.67 ms * 70 / 360 = 8.10 ms.
-The shutter blade begins to cover the lens (the optocoupler). This is when the rising edge of the frame advance signal is emitted. During the EDGE_RISE_DEBOUNCE_DELAY_US time (2000 us) rising edge interrupts are disabled.
-As soon as the lens is uncovered by the shutter blade, the falling edge of the frame advance signal is emitted and the frame advance signal is passed on to the FT232H chip (see [beck-view-digitalize](https://github.com/JuPfu/beck-view-digitalize)).
-The signal to the FT232H chip is held high for FRAME_ADVANCE_DURATION_US (8000 us). The FT232H chip sends the frame advance signal to the PC.
-There shall be no further edge fall interrupts while the frame advance signal is emitted to the FT232H chip. Therefore the debounce delay for the falling edge (EDGE_FALL_DEBOUNCE_DELAY_US) must be greater than FRAME_ADVANCE_DURATION_US.
+**Process Details**
+
+The projector shutter has a single blade covering approximately 70 degrees of a full 360-degree rotation.
+
+* At a maximum speed of 24 frames per second (FPS), the total duration per frame is 41.67 ms.
+
+* The shutter blade covers the lens for 8.10 ms (calculated as 41.67 ms * 70 / 360).
+
+* When the blade starts blocking the lens, a rising edge signal is emitted.
+
+* The system enforces a rising edge debounce delay of 2000 µs to filter out false triggers.
+
+* When the lens is uncovered, a falling edge signal is emitted, and the frame advance signal is sent to the FT232H chip.
+
+* The signal remains high for 8000 µs.
+
+* The falling edge debounce delay ensures no additional interrupts occur while the frame advance signal is active.
 
 **End-of-Film Detection:**  
 A second photoelectric sensor is used to detect the end of film. The end of film signal is passed on to [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize). The end of film signal is held for 1 second. On receiving the end of film signal [Beck View Digitize](https://github.com/JuPfu/beck-view-digitize) terminates.
@@ -94,13 +104,16 @@ After building, flash the `beck-view-connector.uf2` file to your Pico:
 
 ## GPIO Configuration
 
-  | GPIO Pin | Function                    |
-  |----------|-----------------------------|
-  | 4        | Frame Advance Signal Input  |
-  | 5        | End-of-Film Signal Input    |
-  | 2        | Pass Frame Advance Signal   |
-  | 3        | Pass End-of-Film Signal     |
-  | 25       | Status LED                  |
+  | GPIO Pin | Function                                              |
+  |----------|-------------------------------------------------------|
+  | 0        | Set permantly high on EOF to stop the projector motor |
+  | 1        | Rest pin set high on button press                     |
+  | 2        | Pass on Frame Advance Signal to FT232H controller     |
+  | 3        | Pass on End-of-Film Signal to FT232H controller       |
+  | 4        | Frame Advance Signal Input                            |
+  | 5        | End-of-Film Signal Input                              |
+  | 26       | LED lit on Frame Advance Signal                       |
+  | 27       | LED lit on End-of-Film Signal                         |
 
   ---
 
