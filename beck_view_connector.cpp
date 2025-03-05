@@ -205,8 +205,8 @@ void init_pins()
     init_gpio_pin(PASS_ON_END_OF_FILM_PIN, true, true);   // Configure pass-on end-of-film pin as output
     init_gpio_pin(RESET_PIN, false, false);               // Configure reset pin as input
     init_gpio_pin(MOTOR_PIN, false, true);                // Configure motor pin as output
-    init_gpio_pin(ADVANCE_FRAME_LED, false, true);        // Configure frame advance LED as output
-    init_gpio_pin(END_OF_FILM_LED, false, true);          // Configure end of film LED pin as output
+    init_gpio_pin(ADVANCE_FRAME_LED, true, true);        // Configure frame advance LED as output
+    init_gpio_pin(END_OF_FILM_LED, true, true);          // Configure end of film LED pin as output
 }
 
 /**
