@@ -3,6 +3,8 @@
  * @brief Super 8 projector connector using Raspberry Pi Pico and C.
  */
 
+#define PICO_USE_FASTEST_SUPPORTED_CLOCK 1
+
 #include "hardware/clocks.h"
 #include "hardware/gpio.h"
 #include "hardware/irq.h"
@@ -205,8 +207,8 @@ void init_pins()
     init_gpio_pin(PASS_ON_END_OF_FILM_PIN, true, true);   // Configure pass-on end-of-film pin as output
     init_gpio_pin(RESET_PIN, false, false);               // Configure reset pin as input
     init_gpio_pin(MOTOR_PIN, false, true);                // Configure motor pin as output
-    init_gpio_pin(ADVANCE_FRAME_LED, true, true);        // Configure frame advance LED as output
-    init_gpio_pin(END_OF_FILM_LED, true, true);          // Configure end of film LED pin as output
+    init_gpio_pin(ADVANCE_FRAME_LED, true, true);         // Configure frame advance LED as output
+    init_gpio_pin(END_OF_FILM_LED, true, true);           // Configure end of film LED pin as output
 }
 
 /**
