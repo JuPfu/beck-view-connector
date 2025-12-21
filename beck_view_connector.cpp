@@ -355,6 +355,8 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
 
             frame_counter = 0; // Reset frame counter
 
+            init_pins(); // Initialize the GPIO pins for frame advance and end-of-film signals.
+
             init_signals(); // Initialize signals and their interrupts
 
             display_start_info(); // Display startup information
