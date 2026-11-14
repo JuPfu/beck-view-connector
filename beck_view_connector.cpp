@@ -3,8 +3,6 @@
  * @brief Super 8 projector connector using Raspberry Pi Pico and C++.
  */
 
-#define PICO_USE_FASTEST_SUPPORTED_CLOCK 1
-
 #include "hardware/clocks.h"
 #include "hardware/gpio.h"
 #include "hardware/irq.h"
@@ -14,10 +12,9 @@
 #include "pico/stdlib.h"
 #include "pico/time.h"
 #include "pico/util/queue.h"
-#include "stdio.h"
-#include "string.h"
-
-#include <stdbool.h>
+#include <cstdio>
+#include <cstring>
+#include <cstdint>
 
 #include "pt_v1_3.h"
 #include "frame_timing.h"
@@ -28,18 +25,21 @@
 void init_signals(void);
 
 // Define GPIO pins
-#define MOTOR_PIN 0                 ///< GPIO pin set permantly high on EOF to stop projector motor.
-#define RESET_PIN 1                 ///< GPIO pin set high on button press.
-#define PASS_ON_FRAME_ADVANCE_PIN 2 //< GPIO pin to propagate frame advance signal.
-#define PASS_ON_END_OF_FILM_PIN 3   ///< GPIO pin to propagate end-of-film signal.
-#define ADVANCE_FRAME_PIN 4
-#define END_OF_FILM_PIN 5
-#define ADVANCE_FRAME_LED 25
-#define END_OF_FILM_LED 25
+constexpr uint MOTOR_PIN = 0; //< GPIO pin set permantly high on EOF to stop projector motor.
+constexpr uint RESET_PIN = 1; ///< GPIO pin set high on button press.
+
+constexpr uint PASS_ON_FRAME_ADVANCE_PIN = 2; //< GPIO pin to propagate frame advance signal.
+constexpr uint PASS_ON_END_OF_FILM_PIN = 3;   ///< GPIO pin to propagate end-of-film signal.
+
+constexpr uint ADVANCE_FRAME_PIN = 4;
+constexpr uint END_OF_FILM_PIN = 5;
 
 // Signal durations
-#define FRAME_ADVANCE_DURATION_US 5000  ///< Duration in microseconds to maintain frame advance signal.
-#define END_OF_FILM_DURATION_US 1000000 ///< Duration in microseconds to maintain end-of-film signal.
+constexpr uint32_t FRAME_ADVANCE_DURATION_US = 5000;  ///< Duration in microseconds to maintain frame advance signal.
+constexpr uint32_t END_OF_FILM_DURATION_US = 1000000; ///< Duration in microseconds to maintain end-of-film signal.
+
+#define ADVANCE_FRAME_LED 25
+#define END_OF_FILM_LED 25
 
 // The projector shutter has a single blade of about 70 degrees. The maximum speed of the shutter is
 // 24 frames per second. The time for a single frame is 1/24 = 41.67 ms. The shutter blade covers the
@@ -50,14 +50,14 @@ void init_signals(void);
 // are disabled.
 // As soon as the lens is uncovered by the shutter blade, the falling edge of the frame advance signal is
 // emitted and the frame advance signal is passed on to the FT232H chip (see https://github.com/JuPfu/beck-view-digitalize).
-// The signal to the FT232H chip is held high for FRAME_ADVANCE_DURATION_US (8000 us). The FT232H chip sends
+// The signal to the FT232H chip is held high for FRAME_ADVANCE_DURATION_US (5000 us). The FT232H chip sends
 // the frame advance signal to the PC.
 // There shall be no further edge fall interrupts while the frame advance signal is emitted to the FT232H chip.
 // Therefore the debounce delay for the falling edge (EDGE_FALL_DEBOUNCE_DELAY_US) must be greater than
 // FRAME_ADVANCE_DURATION_US.
 //
 #define EDGE_FALL_DEBOUNCE_DELAY_US 6000 ///< Debounce duration for falling edge.
-#define EDGE_RISE_DEBOUNCE_DELAY_US 2000  ///< Debounce duration for rising edge.
+#define EDGE_RISE_DEBOUNCE_DELAY_US 2000 ///< Debounce duration for rising edge.
 
 // Commands for the queue to manage updates and events
 #define UPDATE_CMD 1 ///< Command for updating display.
@@ -116,7 +116,7 @@ static PT_THREAD(update_display(struct pt *pt))
         if (queue_entry.cmd == UPDATE_CMD)
         {
             // Calculate FPS and duration for the frame
-            uint64_t time_diff_us = absolute_time_diff_us(queue_entry.frame_start, queue_entry.frame_end);
+            int64_t time_diff_us = absolute_time_diff_us(queue_entry.frame_start, queue_entry.frame_end);
             float fps = 1.0e6 / time_diff_us;
             float duration = time_diff_us / 1.0e6;
 
@@ -126,7 +126,7 @@ static PT_THREAD(update_display(struct pt *pt))
         else if (queue_entry.cmd == EOF_CMD)
         {
             // Calculate average FPS and total duration for end-of-film
-            uint64_t time_diff = absolute_time_diff_us(queue_entry.start_time, queue_entry.frame_end);
+            int64_t time_diff = absolute_time_diff_us(queue_entry.start_time, queue_entry.frame_end);
             float avg_fps = (1.0e6 / time_diff) * queue_entry.frame_counter;
             float duration = time_diff / 1.0e6;
 
@@ -230,19 +230,14 @@ void pio_setup(const pio_program_t *program, PIO *pio, uint *sm, uint *offset, u
  * @brief Enables edge interrupt for frame advance signal after debounce delay.
  *
  * @param id Alarm ID (unused).
- * @param user_data Additional user data (unused).
+ * @param user_data Additional user data.
  * @return int64_t Always returns 0.
  */
 int64_t enable_frame_advance_edge_irq(alarm_id_t id, void *user_data)
 {
-    // Enter critical section to protect shared resources
-    critical_section_enter_blocking(&cs1);
+    const bool enable_fall = reinterpret_cast<uintptr_t>(user_data) == FALL;
 
-    // Determine the current IRQ status and set the appropriate edge detection
-    irq_status = ((edge_t *)user_data)->value == 0;
-    gpio_set_irq_enabled(ADVANCE_FRAME_PIN, irq_status ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE, true);
-
-    critical_section_exit(&cs1); // Exit critical section
+    gpio_set_irq_enabled(ADVANCE_FRAME_PIN, enable_fall ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE, true);
 
     return 0;
 }
@@ -286,7 +281,12 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
 
                 // Re-enable IRQ after debounce delay
                 edge.value = FALL;
-                uint64_t edge_fall_alarm_id = add_alarm_in_us(EDGE_FALL_DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, &edge, false);
+
+                uint64_t edge_fall_alarm_id = add_alarm_in_us(
+                    EDGE_FALL_DEBOUNCE_DELAY_US,
+                    enable_frame_advance_edge_irq,
+                    reinterpret_cast<void *>(static_cast<uintptr_t>(FALL)),
+                    false);
                 if (edge_fall_alarm_id < 0)
                 {
                     printf("Edge fall alarm error %llu\n", edge_fall_alarm_id);
@@ -303,10 +303,14 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
 
                 // Re-enable IRQ after debounce delay
                 edge.value = RISE;
-                uint64_t edge_rise_alarm_id = add_alarm_in_us(EDGE_RISE_DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, &edge, false);
+                uint64_t edge_rise_alarm_id = add_alarm_in_us(
+                    EDGE_RISE_DEBOUNCE_DELAY_US,
+                    enable_frame_advance_edge_irq,
+                    reinterpret_cast<void *>(static_cast<uintptr_t>(RISE)),
+                    false);
                 if (edge_rise_alarm_id < 0)
                 {
-                    printf("Edge rise alarm error %llu\n", edge_rise_alarm_id);            
+                    printf("Edge rise alarm error %llu\n", edge_rise_alarm_id);
                 }
             }
         }
@@ -399,8 +403,11 @@ void init_signals(void)
  */
 int main()
 {
-    // Overclock Pico to 250 MHz
-    set_sys_clock_khz(250000, true);
+    // Overclock Pico to 200 MHz
+    if (!set_sys_clock_khz(200000, true))
+    {
+        panic("Failed to set system clock to 250 MHz");
+    }
 
     stdio_init_all(); // Initialize standard I/O
 
@@ -417,8 +424,9 @@ int main()
 
     hard_assert(EDGE_FALL_DEBOUNCE_DELAY_US > FRAME_ADVANCE_DURATION_US);
     // Calculate signal durations in clock cycles
-    frame_signal_duration = (clock_get_hz(clk_sys) * (FRAME_ADVANCE_DURATION_US / 1.0e6)) - 2;
-    eof_signal_duration = (clock_get_hz(clk_sys) * (END_OF_FILM_DURATION_US / 1.0e6)) - 2;
+    const uint32_t sys_clock = clock_get_hz(clk_sys);
+    frame_signal_duration = (sys_clock * (FRAME_ADVANCE_DURATION_US / 1.0e6)) - 2;
+    eof_signal_duration = (sys_clock * (END_OF_FILM_DURATION_US / 1.0e6)) - 2;
 
     // Initialize GPIO pins
     init_pins();
@@ -433,8 +441,9 @@ int main()
     init_signals();
 
     // Main loop (as all work is done in interrupt handlers this loop is empty and could be removed)
-    while (1)
+    while (true)
     {
+        tight_loop_contents();
     }
 
     return 0;
