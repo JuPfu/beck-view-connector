@@ -45,6 +45,10 @@ namespace
     };
 }
 
+static constexpr char *beck_view_connector = (char *)"Beck-View-Connector";
+static constexpr char *run = (char *)"run";
+static constexpr char *eof = (char *)"eof";
+
 void display_init()
 {
     //*************** SPI_SPEED + TYPE ***********
@@ -74,8 +78,8 @@ void display_start_info(void)
     DisplayReset();
 
     myTFT.TFTFontNum(myTFT.TFTFont_Mia);
-    myTFT.TFTdrawText(0, 12, "Beck-View-Connector", ST7789_YELLOW, ST7789_RED);
-    myTFT.TFTdrawText(192, 12, "run", ST7789_WHITE, ST7789_BLUE);
+    myTFT.TFTdrawText(0, 12, beck_view_connector, ST7789_YELLOW, ST7789_RED);
+    myTFT.TFTdrawText(192, 12, run, ST7789_WHITE, ST7789_BLUE);
 
     draw_labels();
 }
@@ -98,8 +102,8 @@ void display_eof_info(uint32_t frame_counter, float avg_fps, float duration)
     char frame_buf[20], fps_buf[20], duration_buf[20];
 
     myTFT.TFTFontNum(myTFT.TFTFont_Mia);
-    myTFT.TFTdrawText(0, 12, "Beck-View-Connector", ST7789_YELLOW, ST7789_RED);
-    myTFT.TFTdrawText(192, 12, "eof", ST7789_RED, ST7789_NAVY);
+    myTFT.TFTdrawText(0, 12, beck_view_connector, ST7789_YELLOW, ST7789_RED);
+    myTFT.TFTdrawText(192, 12, eof, ST7789_RED, ST7789_NAVY);
 
     myTFT.TFTsetCursor(5, 20);
     // myTFT.TFTFontNum(myTFT.TFTFont_ArialRound);
