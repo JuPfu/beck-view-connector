@@ -38,8 +38,8 @@ constexpr uint END_OF_FILM_PIN = 5;
 constexpr uint32_t FRAME_ADVANCE_DURATION_US = 5000;  ///< Duration in microseconds to maintain frame advance signal.
 constexpr uint32_t END_OF_FILM_DURATION_US = 1000000; ///< Duration in microseconds to maintain end-of-film signal.
 
-#define ADVANCE_FRAME_LED 25
-#define END_OF_FILM_LED 25
+constexpr uint ADVANCE_FRAME_LED = 25;
+constexpr uint END_OF_FILM_LED = 25;
 
 // The projector shutter has a single blade of about 70 degrees. The maximum speed of the shutter is
 // 24 frames per second. The time for a single frame is 1/24 = 41.67 ms. The shutter blade covers the
@@ -56,17 +56,17 @@ constexpr uint32_t END_OF_FILM_DURATION_US = 1000000; ///< Duration in microseco
 // Therefore the debounce delay for the falling edge (EDGE_FALL_DEBOUNCE_DELAY_US) must be greater than
 // FRAME_ADVANCE_DURATION_US.
 //
-#define EDGE_FALL_DEBOUNCE_DELAY_US 6000 ///< Debounce duration for falling edge.
-#define EDGE_RISE_DEBOUNCE_DELAY_US 2000 ///< Debounce duration for rising edge.
+constexpr uint EDGE_FALL_DEBOUNCE_DELAY_US = 6000; ///< Debounce duration for falling edge.
+constexpr uint EDGE_RISE_DEBOUNCE_DELAY_US = 2000; ///< Debounce duration for rising edge.
 
 // Commands for the queue to manage updates and events
-#define UPDATE_CMD 1 ///< Command for updating display.
-#define EOF_CMD 2    ///< Command for end-of-film handling.
+constexpr uint UPDATE_CMD = 1; ///< Command for updating display.
+constexpr uint EOF_CMD = 2;    ///< Command for end-of-film handling.
 
-#define ADVANCE_FRAME_PIN_PIO 0 ///< Signal for frame advance.
-#define END_OF_FILM_PIN_PIO 1   ///< Signal for end-of-film.
-#define ADVANCE_FRAME_LED_PIO 2 ///< Signal for frame advance.
-#define END_OF_FILM_LED_PIO 3   ///< Signal for frame advance.
+constexpr uint ADVANCE_FRAME_PIN_PIO = 0; ///< Signal for frame advance.
+constexpr uint END_OF_FILM_PIN_PIO = 1;   ///< Signal for end-of-film.
+constexpr uint ADVANCE_FRAME_LED_PIO = 2; ///< Signal for frame advance.
+constexpr uint END_OF_FILM_LED_PIO = 3;   ///< Signal for frame advance.
 
 // PIO (Programmable I/O) setup for signal handling
 static PIO pio[4];     ///< Array of PIO instances.
@@ -87,14 +87,8 @@ static struct pt pt; ///< Protothread control structure.
 
 critical_section_t cs1; ///< Critical section to protect shared resources.
 
-static const int RISE = 0;
-static const int FALL = 1;
-typedef struct
-{
-    int value;
-} edge_t;
-
-static edge_t edge;
+static constexpr int RISE = 0;
+static constexpr int FALL = 1;
 
 /**
  * @brief Protothread for updating the display with frame timing and status information.
@@ -280,13 +274,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                 pio[ADVANCE_FRAME_LED_PIO]->txf[sm[ADVANCE_FRAME_LED_PIO]] = frame_signal_duration;
 
                 // Re-enable IRQ after debounce delay
-                edge.value = FALL;
-
-                uint64_t edge_fall_alarm_id = add_alarm_in_us(
-                    EDGE_FALL_DEBOUNCE_DELAY_US,
-                    enable_frame_advance_edge_irq,
-                    reinterpret_cast<void *>(static_cast<uintptr_t>(FALL)),
-                    false);
+                int64_t edge_fall_alarm_id = add_alarm_in_us(EDGE_FALL_DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, reinterpret_cast<void *>(static_cast<uintptr_t>(FALL)), false);
                 if (edge_fall_alarm_id < 0)
                 {
                     printf("Edge fall alarm error %llu\n", edge_fall_alarm_id);
@@ -302,12 +290,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                 irq_status = 2; // Update IRQ status
 
                 // Re-enable IRQ after debounce delay
-                edge.value = RISE;
-                uint64_t edge_rise_alarm_id = add_alarm_in_us(
-                    EDGE_RISE_DEBOUNCE_DELAY_US,
-                    enable_frame_advance_edge_irq,
-                    reinterpret_cast<void *>(static_cast<uintptr_t>(RISE)),
-                    false);
+                int64_t edge_rise_alarm_id = add_alarm_in_us(EDGE_RISE_DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, reinterpret_cast<void *>(static_cast<uintptr_t>(RISE)), false);
                 if (edge_rise_alarm_id < 0)
                 {
                     printf("Edge rise alarm error %llu\n", edge_rise_alarm_id);
