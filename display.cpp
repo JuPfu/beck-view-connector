@@ -97,6 +97,16 @@ void display_frame_info(uint32_t frame_counter, float fps, float duration)
     print_value(72, 104, "%9.4f", duration);
 }
 
+void display_error_info(const char *what, uint32_t count)
+{
+    char buf[24];
+    snprintf(buf, sizeof(buf), "%s err:%lu", what, static_cast<unsigned long>(count));
+    myTFT.setTextColor(ST7789_RED, ST7789_BLACK);
+    myTFT.TFTsetCursor(0, 126); // look for a proper place toemit error!
+    myTFT.print(buf);
+    myTFT.setTextColor(ST7789_WHITE, ST7789_BLACK);
+}
+
 void display_eof_info(uint32_t frame_counter, float avg_fps, float duration)
 {
     char frame_buf[20], fps_buf[20], duration_buf[20];

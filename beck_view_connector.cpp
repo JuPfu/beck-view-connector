@@ -83,6 +83,11 @@ static volatile uint irq_status = 0; ///< Stores IRQ status for frame advance si
 static int lock_num;        /// Lock number for critical section.
 static queue_t frame_queue; ///< Queue for frame timing data and command exchange between cores.
 
+static volatile uint32_t alarm_failures = 0; // written in ISR (core 0), read on core 1
+
+static uint32_t shown_failures = 0;
+static bool got;
+
 static struct pt pt; ///< Protothread control structure.
 
 critical_section_t cs1; ///< Critical section to protect shared resources.
@@ -105,7 +110,16 @@ static PT_THREAD(update_display(struct pt *pt))
     while (1)
     {
         // Wait for an entry to be available in the queue
-        PT_WAIT_UNTIL(pt, queue_try_remove(&frame_queue, &queue_entry));
+        PT_WAIT_UNTIL(pt, (got = queue_try_remove(&frame_queue, &queue_entry)) ||
+                              alarm_failures != shown_failures);
+
+        if (alarm_failures != shown_failures)
+        {
+            shown_failures = alarm_failures;
+            display_error_info("alarm", shown_failures);
+        }
+        if (!got)
+            continue;
 
         if (queue_entry.cmd == UPDATE_CMD)
         {
@@ -236,6 +250,16 @@ int64_t enable_frame_advance_edge_irq(alarm_id_t id, void *user_data)
     return 0;
 }
 
+static void arm_edge_irq(uint32_t delay_us, int edge)
+{
+    void *ud = reinterpret_cast<void *>(static_cast<uintptr_t>(edge));
+    if (add_alarm_in_us(delay_us, enable_frame_advance_edge_irq, ud, false) <= 0)
+    {
+        enable_frame_advance_edge_irq(0, ud); // fallback: never leave the edge IRQ disabled
+        alarm_failures = alarm_failures + 1;
+    }
+}
+
 /**
  * @brief GPIO interrupt service routine to handle signal events.
  *
@@ -264,21 +288,17 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                     gpio_set_irq_enabled(END_OF_FILM_PIN, GPIO_IRQ_EDGE_RISE, true);
                 }
 
+                // Trigger PIO for frame advance signal and light LED
+                pio[ADVANCE_FRAME_PIN_PIO]->txf[sm[ADVANCE_FRAME_PIN_PIO]] = frame_signal_duration;
+                pio[ADVANCE_FRAME_LED_PIO]->txf[sm[ADVANCE_FRAME_LED_PIO]] = frame_signal_duration;
+
                 queue_entry_t entry = {0};                               // Initialize queue entry
                 process_frame_timing(&entry, frame_counter, UPDATE_CMD); // Process frame timing data
 
                 queue_add_blocking(&frame_queue, &entry); // Add processed data to the queue
 
-                // Trigger PIO for frame advance signal and light LED
-                pio[ADVANCE_FRAME_PIN_PIO]->txf[sm[ADVANCE_FRAME_PIN_PIO]] = frame_signal_duration;
-                pio[ADVANCE_FRAME_LED_PIO]->txf[sm[ADVANCE_FRAME_LED_PIO]] = frame_signal_duration;
-
                 // Re-enable IRQ after debounce delay
-                int64_t edge_fall_alarm_id = add_alarm_in_us(EDGE_FALL_DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, reinterpret_cast<void *>(static_cast<uintptr_t>(FALL)), false);
-                if (edge_fall_alarm_id < 0)
-                {
-                    printf("Edge fall alarm error %llu\n", edge_fall_alarm_id);
-                }
+                arm_edge_irq(EDGE_FALL_DEBOUNCE_DELAY_US, FALL);
 
                 frame_counter++; // Increment the frame counter
             }
@@ -290,11 +310,7 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
                 irq_status = 2; // Update IRQ status
 
                 // Re-enable IRQ after debounce delay
-                int64_t edge_rise_alarm_id = add_alarm_in_us(EDGE_RISE_DEBOUNCE_DELAY_US, enable_frame_advance_edge_irq, reinterpret_cast<void *>(static_cast<uintptr_t>(RISE)), false);
-                if (edge_rise_alarm_id < 0)
-                {
-                    printf("Edge rise alarm error %llu\n", edge_rise_alarm_id);
-                }
+                arm_edge_irq(EDGE_FALL_DEBOUNCE_DELAY_US, RISE);
             }
         }
 

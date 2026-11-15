@@ -11,6 +11,9 @@ void display_start_info(void);
 // Update the display with frame and timing information
 void display_frame_info(uint32_t frame_counter, float fps, float duration);
 
+// Show error info
+void display_error_info(const char *what, uint32_t count);
+
 // Show the end-of-film statistics
 void display_eof_info(uint32_t frame_counter, float avg_fps, float duration);
 
