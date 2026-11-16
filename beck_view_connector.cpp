@@ -35,7 +35,7 @@ constexpr uint ADVANCE_FRAME_PIN = 4;
 constexpr uint END_OF_FILM_PIN = 5;
 
 // Signal durations
-constexpr uint32_t FRAME_ADVANCE_DURATION_US = 10000;  ///< Duration in microseconds to maintain frame advance signal.
+constexpr uint32_t FRAME_ADVANCE_DURATION_US = 10000; ///< Duration in microseconds to maintain frame advance signal.
 constexpr uint32_t END_OF_FILM_DURATION_US = 1000000; ///< Duration in microseconds to maintain end-of-film signal.
 
 constexpr uint ADVANCE_FRAME_LED = 25;
@@ -57,7 +57,7 @@ constexpr uint END_OF_FILM_LED = 25;
 // FRAME_ADVANCE_DURATION_US.
 //
 constexpr uint EDGE_FALL_DEBOUNCE_DELAY_US = 12000; ///< Debounce duration for falling edge.
-constexpr uint EDGE_RISE_DEBOUNCE_DELAY_US = 2000; ///< Debounce duration for rising edge.
+constexpr uint EDGE_RISE_DEBOUNCE_DELAY_US = 2000;  ///< Debounce duration for rising edge.
 
 // Commands for the queue to manage updates and events
 constexpr uint UPDATE_CMD = 1; ///< Command for updating display.
