@@ -35,7 +35,7 @@ constexpr uint ADVANCE_FRAME_PIN = 4;
 constexpr uint END_OF_FILM_PIN = 5;
 
 // Signal durations
-constexpr uint32_t FRAME_ADVANCE_DURATION_US = 5000;  ///< Duration in microseconds to maintain frame advance signal.
+constexpr uint32_t FRAME_ADVANCE_DURATION_US = 10000;  ///< Duration in microseconds to maintain frame advance signal.
 constexpr uint32_t END_OF_FILM_DURATION_US = 1000000; ///< Duration in microseconds to maintain end-of-film signal.
 
 constexpr uint ADVANCE_FRAME_LED = 25;
@@ -56,7 +56,7 @@ constexpr uint END_OF_FILM_LED = 25;
 // Therefore the debounce delay for the falling edge (EDGE_FALL_DEBOUNCE_DELAY_US) must be greater than
 // FRAME_ADVANCE_DURATION_US.
 //
-constexpr uint EDGE_FALL_DEBOUNCE_DELAY_US = 6000; ///< Debounce duration for falling edge.
+constexpr uint EDGE_FALL_DEBOUNCE_DELAY_US = 12000; ///< Debounce duration for falling edge.
 constexpr uint EDGE_RISE_DEBOUNCE_DELAY_US = 2000; ///< Debounce duration for rising edge.
 
 // Commands for the queue to manage updates and events
@@ -234,6 +234,14 @@ void pio_setup(const pio_program_t *program, PIO *pio, uint *sm, uint *offset, u
     pio_sm_set_enabled(*pio, *sm, true);                      // Enable the state machine
 }
 
+// Arms the OPPOSITE edge of the one that was just handled (no locking inside)
+static void arm_opposite_edge(int handled_edge)
+{
+    const bool next_is_fall = (handled_edge == RISE);
+    irq_status = next_is_fall ? 1 : 0;
+    gpio_set_irq_enabled(ADVANCE_FRAME_PIN, next_is_fall ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE, true);
+}
+
 /**
  * @brief Enables edge interrupt for frame advance signal after debounce delay.
  *
@@ -243,19 +251,18 @@ void pio_setup(const pio_program_t *program, PIO *pio, uint *sm, uint *offset, u
  */
 int64_t enable_frame_advance_edge_irq(alarm_id_t id, void *user_data)
 {
-    const bool enable_fall = reinterpret_cast<uintptr_t>(user_data) == FALL;
-
-    gpio_set_irq_enabled(ADVANCE_FRAME_PIN, enable_fall ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE, true);
-
+    critical_section_enter_blocking(&cs1);
+    arm_opposite_edge(static_cast<int>(reinterpret_cast<uintptr_t>(user_data)));
+    critical_section_exit(&cs1);
     return 0;
 }
 
-static void arm_edge_irq(uint32_t delay_us, int edge)
+static void arm_edge_irq(uint32_t delay_us, int handled_edge)
 {
-    void *ud = reinterpret_cast<void *>(static_cast<uintptr_t>(edge));
+    void *ud = reinterpret_cast<void *>(static_cast<uintptr_t>(handled_edge));
     if (add_alarm_in_us(delay_us, enable_frame_advance_edge_irq, ud, false) <= 0)
     {
-        enable_frame_advance_edge_irq(0, ud); // fallback: never leave the edge IRQ disabled
+        arm_opposite_edge(handled_edge); // fallback; the ISR already holds cs1
         alarm_failures = alarm_failures + 1;
     }
 }
@@ -327,14 +334,14 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
             gpio_set_irq_enabled(ADVANCE_FRAME_PIN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false);
             critical_section_exit(&cs1); // Exit critical section
 
+            // Trigger PIO for end-of-film signal and light LED
+            pio[END_OF_FILM_PIN_PIO]->txf[sm[END_OF_FILM_PIN_PIO]] = eof_signal_duration;
+            pio[END_OF_FILM_LED_PIO]->txf[sm[END_OF_FILM_LED_PIO]] = eof_signal_duration;
+
             queue_entry_t entry;
             process_frame_timing(&entry, frame_counter, EOF_CMD); // Process end-of-film timing data
 
             queue_add_blocking(&frame_queue, &entry); // Add processed data to the queue
-
-            // Trigger PIO for end-of-film signal and light LED
-            pio[END_OF_FILM_PIN_PIO]->txf[sm[END_OF_FILM_PIN_PIO]] = eof_signal_duration;
-            pio[END_OF_FILM_LED_PIO]->txf[sm[END_OF_FILM_LED_PIO]] = eof_signal_duration;
 
             gpio_put(MOTOR_PIN, 1); // stop motor of projector
 
@@ -358,7 +365,9 @@ void gpio_irq_callback_isr(uint gpio, uint32_t event_mask)
 
             frame_counter = 0; // Reset frame counter
 
-            init_pins(); // Initialize the GPIO pins for frame advance and end-of-film signals.
+            // Do not call gpio_init() on pins 2, 3 and 25. That resets their function to SIO and disconnects them from the PIO.
+            // Reset motor pin should be suffcient
+            gpio_put(MOTOR_PIN, 0);
 
             init_signals(); // Initialize signals and their interrupts
 
@@ -405,7 +414,7 @@ int main()
     // Overclock Pico to 200 MHz
     if (!set_sys_clock_khz(200000, true))
     {
-        panic("Failed to set system clock to 250 MHz");
+        panic("Failed to set system clock to 200 MHz");
     }
 
     stdio_init_all(); // Initialize standard I/O
